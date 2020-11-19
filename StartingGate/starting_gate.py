@@ -1,0 +1,291 @@
+#!/usr/bin/python3
+
+"""
+Starting Gate:
+
+    The Starting Gate is responsible for running Diecast Remote Raceway races.
+    It coordinates with the Finish Line component to run races locally, and the
+    Race Coordinator for multi-track races.
+
+"""
+
+# TODO:
+#       Clean up startup process
+#         * After exchanging HELLO messages, request version from FL
+#         * Do version check on SG
+#         * Only if update needed, send UPFW command w/ bluetooth SSID and password
+#       Send encoded WiFI parameters to Finish Line if firmware update needed
+
+import time
+import traceback
+import bluetooth
+
+from config import Config, NOT_FINISHED
+from coordinator import Coordinator
+from deviceio import SERVO, LANE1, LANE2, LANE3, LANE4
+from display import Display, NOT_FINISHED
+
+# Globals (yea, I know)
+#pylint: disable=invalid-name
+race_aborted = False # Set by key_pressed callback to reset race state
+finish_line_connected = False
+
+NANOSECONDS_TO_SECONDS = 1000000000
+
+def key_pressed():
+    """
+    Callback invoked when a key is pressed after exiting the top level menu.
+    Sets global race_aborted state to exit the current race at the earliest
+    convenience and return to the top level menu.
+    """
+    global race_aborted
+    race_aborted = 1
+
+#TODO: Make this async and kick it off as early as possible.
+def connect_to_finish_line(target_name):
+    """ Perform a bluetooth scan for the Finish Line advertising itself as 'target_name'
+        If found, establish a connection and return the connected socket
+
+        Args:
+            target_name:    The Bluetooth advertised name of the Finish Line to connect
+
+        Returns:
+            socket          The open socket to the Finish Line
+
+    """
+
+    port = 1
+    socket = None
+    target_address = None
+    global finish_line_connected
+
+    print("Attempting Bluetooth connection to ", target_name)
+
+    while target_address is None:
+        nearby_devices = bluetooth.discover_devices()
+
+        for bdaddr in nearby_devices:
+            if target_name == bluetooth.lookup_name(bdaddr):
+                target_address = bdaddr
+                break
+
+        if target_address is None:
+            print("could not find FinishLine nearby")
+        else:
+            print("Found FinishLine, connecting...")
+            socket = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+            socket.connect((target_address, port))
+            finish_line_connected = True
+            print("Connected to finish line")
+            socket.send("HELO")
+    return socket
+
+def reset_starting_gate():
+    """ Set servo to midpoint position to close the starting gate """
+    SERVO.mid()
+
+def release_starting_gate():
+    """ Set servo to max position to release the starting gate """
+    SERVO.max()
+
+def all_lanes_ready(config):
+    """ Scan the lane sensors to see if all lanes have cars present. """
+
+    print("LANE1 = ", LANE1.value)
+    print("LANE2 = ", LANE2.value)
+    print("LANE3 = ", LANE3.value)
+    print("LANE4 = ", LANE4.value)
+
+    num_lanes = config.num_lanes
+
+    if num_lanes == 1:
+        return LANE1.value == 1
+    if num_lanes == 2:
+        return LANE1.value + LANE2.value == 2
+    if num_lanes == 3:
+        return LANE1.value + LANE2.value + LANE3.value == 3
+    if num_lanes == 4:
+        return LANE1.value + LANE2.value + LANE4.value == 4
+    return 0 # Dead code, but makes pylint happy
+
+def purge_bluetooth_messages(socket):
+    """ Read any residual data from the Finish Line bluetooth connection.
+
+    Before adding the STRT/ENDR message exchange to prevent the finish line
+    from sending results when something passed over a lane when no race was
+    active, this purge was critical. Otherwise pending messages (for example
+    from someone picking up a car from the finish line) would register before
+    a car actually reached the finish line.
+
+    Now reading data should be rare and probably indicates a problem in the
+    finish line's debounce logic for the IR sensors. Nevertheless, a millisecond
+    delay to read any outstanding data on the socket seems like a reasonable
+    defensive act.
+    """
+
+    prior_timeout = socket.gettimeout()
+    socket.settimeout(0.01)    # wait 1ms for any residual messages
+    try:
+        socket.recv(1024)   # Purge any messages from the Finish Line
+    except bluetooth.btcommon.BluetoothError as exc:
+        if exc.args[0] == 'timed out':
+            print("purge_bluetooth_messages(): BluetoothError = timed out, ignoring.")
+        else:
+            # Re raise any other bluetooth exception so the main loop will reconnect
+            print("purge_bluetooth_messages(): BluetoothError, other reason =", exc.args)
+            raise exc
+    except Exception as exc:
+        print("purge_bluetooth_messages: unexcpected exception: ", exc)
+    socket.settimeout(prior_timeout)
+
+
+def run_race(config, coordinator, display, socket):
+    """
+    Run a race
+
+    Args:
+        config  Config object with current race configuration
+        display Display object to manage display of race state
+        socket  Bluetooth connection to Finish Line
+    """
+
+    num_lanes = config.num_lanes
+    finish_times = [NOT_FINISHED, NOT_FINISHED, NOT_FINISHED, NOT_FINISHED]
+
+    def lane_index(msg):
+        """
+        Convert finished message received from the Finish Line to a lane index.
+
+        Lanes are named Lane1 through Lane4, but arrays are zero indexed.  So the "FIN1"
+        message indicates that the lane with an index position of 0 is finished.
+        """
+        lane_number = int(msg[3])
+        return lane_number - 1
+
+    def lane_finished(lane, times):
+        """
+        Record the finish time for the specified lane in the times array
+        """
+        end = time.monotonic_ns()
+        delta = float(end - start) / NANOSECONDS_TO_SECONDS
+        print("Lane %d finished. Elapsed time: %6.3f" % (lane, delta))
+        times[lane] = delta
+
+    def all_lanes_finished():
+        """
+        Returns True if all configured lanes have finished.  False otherwise.
+        """
+        for lane in range(num_lanes):
+            if finish_times[lane] == NOT_FINISHED:
+                return False
+        return True
+
+    display.wait_local_ready()
+    print("Waiting for cars at the gate")
+    while not all_lanes_ready(config):
+        time.sleep(1)
+    print("All Lanes Ready.")
+
+    if config.multi_track:
+        display.wait_remote_ready()
+
+    display.countdown()
+
+    purge_bluetooth_messages(socket)
+
+    print("Start the race!")
+    release_starting_gate()
+
+    socket.send("STRT")
+    start = time.monotonic_ns()
+    timeout = start + config.race_timeout * NANOSECONDS_TO_SECONDS
+
+    while not all_lanes_finished() and not race_aborted and time.monotonic_ns() < timeout:
+        try:
+            data = socket.recv(5)
+            if not data:
+                break
+        except bluetooth.btcommon.BluetoothError as exc:
+            if exc.args[0] == 'timed out':
+                print("Timeout waiting for race results. Finishing race")
+                break
+            else:
+                print("purge_bluetooth_messages(): BluetoothError, other reason =", exc.args)
+                raise exc
+
+        msg = data.decode('utf-8')
+        print("received ", msg)
+
+        if msg.startswith("FIN"):
+            lane_finished(lane_index(msg), finish_times)
+
+
+    # Send end of race message to Finish Line to disable further completion messages
+    socket.send("ENDR")
+
+    if not race_aborted:
+        print("Race finished")
+        results = []
+        for lane in range(num_lanes):
+            result = {}
+            result["laneNumber"] = lane
+            result["laneTime"] = finish_times[lane]
+            results.append(result)
+
+        # Send local results to race coordinator and await global results
+        if config.multi_track:
+            coordinator.results(results)
+
+
+def main():
+    """
+    Configure starting_gate and run races
+    """
+
+    config = Config("/home/pi/config/starting_gate.json")
+    display = Display(config)
+    coordinator = Coordinator(config)
+    socket = None
+    global finish_line_connected
+
+    reset_starting_gate()
+
+    # Main loop to iterate over successive race configurations
+    while True:
+
+        # Reset aborted state
+        global race_aborted
+        race_aborted = False
+
+        # De-register with race coordinator.
+        coordinator.deregister()
+
+        # Display the main menu and wait for race selection
+        display.wait_menu()
+
+        # Establish Bluetooth connection to Finish Line
+        if not finish_line_connected:
+            display.wait_finish_line()
+            socket = connect_to_finish_line(config.finish_line_name)
+
+        # Register with the race coordinator if multi-track race selected in menu
+        if config.multi_track:
+            coordinator.register()
+
+        while not race_aborted:
+            try:
+                run_race(config, coordinator, display, socket)
+            except bluetooth.btcommon.BluetoothError:
+                print("Bluetooth exception caught.  Reconnecting...")
+                finish_line_connected = False
+                socket = connect_to_finish_line("FinishLine")
+            except Exception as exc:
+                print("Unexpected exception caught", exc)
+                traceback.print_exc()
+
+            reset_starting_gate()
+
+if __name__ == '__main__':
+    main()
+
+# vim: expandtab: sw=4
