@@ -6,7 +6,13 @@
 This is a list of parts from US suppliers with < 1 week shpping times.
 These are (mostly) the exact SKUs I purchased when designing and building
 the raceway.  Prices are accurate as of when I ordered the, but may have
-changes since.  In many cases, I purchased kits with multiple connectors or parts to experiment with.  Not counting "consumables" like screws, nuts, wire and wiring connectors, two 4-lane tracks can be built with readily availale parts for about $140.  If you're willing to wait for shipping from China, you could obtain the same parts for under $90.  All prices include shipping, but not taxes.  Note: I'm an Amazon Prime member, non Prime members may incur additional shipping costs."
+changes since.  In many cases, I purchased kits with multiple connectors
+or parts to experiment with.  Not counting "consumables" like screws,
+nuts, wire and wiring connectors, two 4-lane tracks can be built with
+readily availale parts for about $140.  If you're willing to wait for
+shipping from China, you could obtain the same parts for under $90.
+All prices include shipping, but not taxes.  Note: I'm an Amazon Prime
+member, non Prime members may incur additional shipping costs."
 
 | Item | # | Each | Total | Vendor |
 | :--- | :---     | ---: | ---:  | :---   |
@@ -19,6 +25,9 @@ changes since.  In many cases, I purchased kits with multiple connectors or part
 | **Finish Lines** | |  |  |  |
 | ESP32 ESP-32S Development Board  | 2 | (2 for 14.89) | $14.89 | https://www.amazon.com/dp/B07Q576VWZ/ |
 | 4-Channel IR Line Tracking Sensor Module | 2 | $4.39 | $8.78 | https://www.amazon.com/dp/B07Q2HRXN4 |
+|  2.54 MM Right Angled IDC Receptacle - 2 Position | 2 | $0.54 | $1.08 | https://www.digikey.com/en/products/detail/w-rth-elektronik/661002152222/10239727 |
+|  2.54 MM Right Angled IDC Receptacle - 5 Position | 2 | $0.76 | $1.52 | https://www.digikey.com/en/products/detail/w-rth-elektronik/661005152222/10239742 |
+|  IDC Receptacle Shipping |   |       | $4.99 | |
 | **Assembly** | |  |  |  |
 | M4-0.7 Metal Threaded Heat Set Screw Inserts | 1 |  | 9.99 | https://www.ebay.com/itm/292173878339 |
 | M4 x 0.7mm SS Nylon Lock Nuts | 1 |  | $5.99 | https://www.amazon.com/gp/product/B075ZZD3NN |
