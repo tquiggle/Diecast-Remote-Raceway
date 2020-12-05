@@ -10,7 +10,7 @@
 Author: Tom Quiggle
 tquiggle@gmail.com
 
-http://url/of/online/tutorial.cc
+https://github.com/tquiggle/Diecast-Remote-Raceway
 
 Copyright (c) Thomas Quiggle. All rights reserved.
 
@@ -39,10 +39,10 @@ full license information.
 #include <SPIFFS.h>
 
 // Hard coded config
-const char* FW_VERSION = "20072501";
+const char* FW_VERSION = "20120405";
                        // YYMMDDVV Last two digits of Year, Month, Day, Version
-const char* fwVersionURLtemplate = "http://%s:%d/FL/version.txt";
-const char* fwURLtemplate = "http://%s:%d/FL/finish-line-%0d.bin";
+const char* fwVersionURLtemplate = "http://%s:%d/DRR/FL/version.txt";
+const char* fwURLtemplate = "http://%s:%d/DRR/FL/finish-line-%0d.bin";
 const char* configFilename = "/config.json";
 
 // Adjust defaults as you see fit
@@ -50,7 +50,7 @@ const char* configFilename = "/config.json";
 #define DEFAULT_WIFI_SSID "<SSID>"
 #define DEFAULT_WIFI_PASSWORD "<PASSWORD>"
 #define DEFAULT_BT_ADVERTISEMENT "FinishLine"
-#define DEFAULT_CONTROLLER_HOSTNAME "<CONTROLER_HOST>"
+#define DEFAULT_CONTROLLER_HOSTNAME "<CONTROLLER_HOST>"
 #define DEFAULT_CONTROLLER_PORT 1968
 #define MAX_CONFIG_SIZE 256
 
@@ -128,7 +128,7 @@ bool saveConfig(const char* filename) {
   }
 
   if (SPIFFS.exists(filename)) {
-    Serial.printf("saveConfig(): %s exists, removing", filename);
+    Serial.printf("saveConfig(): %s exists, removing.\n", filename);
     SPIFFS.remove(filename);
   }
 
@@ -161,13 +161,9 @@ bool saveConfig(const char* filename) {
   return true;
 }
 
-bool loadConfig(const JsonDocument& doc) {
-
-}
-
 // Reads in the saved configuration from the SPIFFS file system on flash.
 bool readConfig(const char* filename) {
-  Serial.println("readConfig():");
+  Serial.println("readConfig(): Compiled Defaults:");
 
   Serial.printf("  wifiSSID = %s\n", wifiSSID.c_str());
   Serial.printf("  wifiPassword = %s\n", wifiPassword.c_str());
@@ -181,7 +177,7 @@ bool readConfig(const char* filename) {
     return false;
   }
 
-  if (SPIFFS.exists(filename)) {
+  if (!SPIFFS.exists(filename)) {
     // Create config file with defaults
     Serial.printf("readConfig(): %s does not exist. Creating.\n", filename);
     saveConfig(filename);
@@ -201,30 +197,32 @@ bool readConfig(const char* filename) {
     SPIFFS.remove(filename);
     return false;
   }
+  
+  Serial.printf("readConfig(): Configuration read from %s:\n", filename);
 
   if (doc.containsKey("wifiSSID")) {
     wifiSSID = doc["wifiSSID"].as<String>();
-    Serial.print("wifiSSID=");
+    Serial.print("  wifiSSID = ");
     Serial.println(wifiSSID);
   }
-  if (doc.containsKey("wifiPassword")) {
+  if (doc.containsKey("  wifiPassword  ")) {
     wifiPassword = doc["wifiPassword"].as<String>();
-    Serial.print("wifiPassword=");
+    Serial.print("  wifiPassword = ");
     Serial.println(wifiPassword);
   }
   if (doc.containsKey("bluetoothAdvertisement")) {
     bluetoothAdvertisement = doc["bluetoothAdvertisement"].as<String>();
-    Serial.print("bluetoothAdvertisement=");
+    Serial.print("  bluetoothAdvertisement = ");
     Serial.println(bluetoothAdvertisement);
   }
   if (doc.containsKey("controllerHostname")) {
     controllerHostname = doc["controllerHostname"].as<String>();
-    Serial.print("controllerHostname=");
+    Serial.print("  controllerHostname = ");
     Serial.println(controllerHostname);
   }
   if (doc.containsKey("controllerPort")) {
     controllerPort = doc["controllerPort"];
-    Serial.print("controllerPort=");
+    Serial.print("  controllerPort = ");
     Serial.println(controllerPort);
   }
   config.close();
@@ -233,10 +231,12 @@ bool readConfig(const char* filename) {
 
 // Process a GETC command received via Bluetooth to update
 bool getConfig(String configStr) {
-  Serial.printf("setConfig(): configStr=%s\n", configStr);
+  Serial.printf("getConfig(): configStr=%s\n", configStr);
   StaticJsonDocument<MAX_CONFIG_SIZE> doc;
 
-  if (configStr != NULL && strlen(configString)) {
+  if (configStr.length() > 5) {
+    String config = configStr.substring(5);
+    Serial.printf("getConfig(): getting %s\n", config);
     if (configStr == "wifiSSID") {
       doc["wifiSSID"] = wifiSSID;
     } else if (configStr == "wifiPassword") {
@@ -297,14 +297,14 @@ bool setConfig(String configStr) {
   return saveConfig(configFilename);
 }
 
-void deleteConfig(const char* filename) {
+void deleteConfig() {
   Serial.println("deleteConfig():");
 
   if (!SPIFFS.begin(true)) {
-    Serial.println("readConfig(): SPIFFS.begin() failed.");
+    Serial.println("deleteConfig(): SPIFFS.begin() failed.");
     return;
   }
-  SPIFFS.remove(filename);
+  SPIFFS.remove(configFilename);
   SPIFFS.end();
 }
 
@@ -356,8 +356,8 @@ void checkForUpdates() {
     } else {
       char fwImageURL[URLLEN];
       t_httpUpdate_return ret;
-
-      snprintf(fwImageURL, URLLEN, fwURLtemplate, controllerHostname,
+      
+      snprintf(fwImageURL, URLLEN, fwURLtemplate, controllerHostname.c_str(),
                controllerPort, newVersion);
       Serial.printf("Preparing to update to %s\n", fwImageURL);
 
@@ -392,14 +392,27 @@ void checkForUpdates() {
 void processMessage() {
   String data = SerialBT.readString();
   Serial.println("Received '" + data + "' from Starting Line");
-  switch (toCommand(data)) {
+  if (data.length() < 3) {
+    Serial.println("Command too short");
+    return;
+  }
+  
+  String command = data.substring(0,4);
+  Serial.println("command = '" + command + "'");
+
+  String argument = data.substring(5);
+  Serial.println("argument = '" + argument + "'");
+
+  switch (toCommand(command)) {
     case HELLO:
       SerialBT.write((const uint8_t*)"HELLO", 5);
       break;
     case RESTART:
       ESP.restart();
+      break;
     case UPDATE_FW:
       checkForUpdates();
+      break;
     case VERSION:
       SerialBT.write((const uint8_t*)FW_VERSION, strlen(FW_VERSION));
       break;
@@ -410,13 +423,13 @@ void processMessage() {
       raceRunning = false;
       break;
     case GET_CONFIG:
-      getConfig();
+      getConfig(argument);
       break;
     case SET_CONFIG:
-      setConfig(data);
+      setConfig(argument);
       break;
     case DELETE_CONFIG:
-      deleteConfig(data.c_str());
+      deleteConfig();
       break;
     case UNKNOWN:
       Serial.println("Received unknown command.");
@@ -425,6 +438,7 @@ void processMessage() {
 }
 
 void sendResult(Lanes lane) {
+  Serial.printf("LANE%0d finished.\n", lane + 1);
   SerialBT.write(finishMessages[lane], finishMessageLength);
   lastFinish[lane] = millis();
 }
@@ -454,19 +468,15 @@ void loop() {
   }
   if (raceRunning) {
     if ((digitalRead(LANE1_PIN) == 0) && debounce(LANE1)) {
-      Serial.println("LANE1 finished");
       sendResult(LANE1);
     }
     if ((digitalRead(LANE2_PIN) == 0) && debounce(LANE2)) {
-      Serial.println("LANE2 finished");
       sendResult(LANE2);
     }
     if ((digitalRead(LANE3_PIN) == 0) && debounce(LANE3)) {
-      Serial.println("LANE3 finished");
       sendResult(LANE3);
     }
     if ((digitalRead(LANE4_PIN) == 0) && debounce(LANE4)) {
-      Serial.println("LANE4 finished");
       sendResult(LANE4);
     }
   }
