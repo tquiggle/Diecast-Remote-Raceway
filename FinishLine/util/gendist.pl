@@ -6,7 +6,7 @@
 use strict;
 
 my $dist_dir = "/home/htdocs/DRR/FL";  # Directory where FL distribution files are located
-my $ver = "";                          # distribution version from within a single day
+my $version = "";                      # distribution version from within a single day
 
 my $src_file = "finishline/finishline.ino";
 my $bin_file = "finishline/finishline.ino.esp32.bin";
@@ -17,21 +17,22 @@ my $bin_mtime = (stat($bin_file))[9];
 die "Source file is newer than binary. Please recompile." if ($src_mtime > $bin_mtime);
 
 # Get distribution string from source
-open my $fh, "< $src_file" || die "Unable to open source";
+open my $fh, "< $src_file" || die "Unable to open $src_file";
 while (<$fh>) {
     if (/FW_VERSION\s*=\s*"(\d+)"/) {
-        $ver = $1;
+        $version = $1;
         last;
     }
 }
 close $fh;
 
-die "Unable to determine source version" if ($ver == "");
+die "Unable to determine source version" if ($version == "");
 
-my $dist_filename = sprintf("$dist_dir/finish-line-%s.bin", $ver);
+my $dist_filename = sprintf("$dist_dir/finish-line-%s.bin", $version);
 print "Releasing $bin_file to $dist_filename\n";
 system("cp $bin_file $dist_filename");
+
 open $fh, "> $dist_dir/version.txt";
-print $fh "$ver\n";
+print $fh "$version\n";
 close $fh;
 
