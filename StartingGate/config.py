@@ -50,16 +50,18 @@ CAR2 = 2
 CAR3 = 3
 
 # Persisted configuration variable names:
+CAR_ICONS = "car_icons"                 # Car icons for each lane
 CIRCUIT = "circuit"                     # Name of the circuit we are racing in, if any
+COORDINATOR_HOSTNAME = "coord_host"     # Hostname of the race coordinator server
+COORDINATOR_PORT = "coord_port"         # Port the race coordinator server is running on
 FINISH_LINE_NAME = "finish_line_name"   # Bluetooth advertisement of our finish line
 NUM_LANES = "num_lanes"                 # Number of lanes in the local track (1..4)
 RACE_TIMEOUT = "race_timeout"           # Timeout, in seconds, to declare a race over
+SERVO_DOWN_VALUE= "servo_down_value"    # Numeric value for Servo for gate in down position
+SERVO_UP_VALUE = "servo_up_value"       # Numeric value for Servo for gate in up position
 TRACK_NAME = "track_name"               # Name of the local track
-CAR_ICONS = "car_icons"                 # Car icons for each lane
-WIFI_SSID = "wifi_ssid"                 # WiFi SSID
 WIFI_PSWD = "wifi_pswd"                 # WiFi Password
-COORDINATOR_HOSTNAME = "coord_host"     # Hostname of the race coordinator server
-COORDINATOR_PORT = "coord_port"         # Port the race coordinator server is running on
+WIFI_SSID = "wifi_ssid"                 # WiFi SSID
 
 # Ephemeral configuration variable names
 IP_ADDRESS = "ip_address"               # IP Address as seen by race coordinator
@@ -68,16 +70,18 @@ REMOTE_TRACK_NAME = "remote_track_name" # Name of the remote track we are racing
 REMOTE_NUM_LANES = "remote_num_lanes"   # Number of lanes in the track we are racing against
 REMOTE_CAR_ICONS = "remote_car_icons"   # Car icons to use for remote lanes
 
-PERSISTED_CONFIGS = [CIRCUIT,
+PERSISTED_CONFIGS = [CAR_ICONS,
+                     CIRCUIT,
+                     COORDINATOR_HOSTNAME,
+                     COORDINATOR_PORT,
                      FINISH_LINE_NAME,
                      NUM_LANES,
                      RACE_TIMEOUT,
+                     SERVO_DOWN_VALUE,
+                     SERVO_UP_VALUE,
                      TRACK_NAME,
-                     CAR_ICONS,
-                     WIFI_SSID,
                      WIFI_PSWD,
-                     COORDINATOR_HOSTNAME,
-                     COORDINATOR_PORT]
+                     WIFI_SSID]
 
 EPHEMERAL_CONFIGS = [IP_ADDRESS,
                      MULTI_TRACK,
@@ -114,21 +118,23 @@ class Config:
     # Default config values, overridden by /home/pi/config/starting_gate.json
     #
     DEFAULT = {}
-    DEFAULT[IP_ADDRESS] = "127.0.0.1"
-    DEFAULT[CIRCUIT] = "DRR"
-    DEFAULT[FINISH_LINE_NAME] = "FinishLine"
-    DEFAULT[NUM_LANES] = 2
-    DEFAULT[RACE_TIMEOUT] = 5.0
-    DEFAULT[TRACK_NAME] = "Track-1"
     DEFAULT[CAR_ICONS] = ["convertible-red", "white", "blue", "black"]
-    DEFAULT[WIFI_SSID] = "<WIFI_SSID>"
-    DEFAULT[WIFI_PSWD] = "<WIFI_PASSWORD>"
+    DEFAULT[CIRCUIT] = "DRR"
     DEFAULT[COORDINATOR_HOSTNAME] = "<COORDINATOR_HOSTNAME>"
     DEFAULT[COORDINATOR_PORT] = 1968
+    DEFAULT[FINISH_LINE_NAME] = "FinishLine"
+    DEFAULT[IP_ADDRESS] = "127.0.0.1"
     DEFAULT[MULTI_TRACK] = False
-    DEFAULT[REMOTE_TRACK_NAME] = "UNKNOWN"
-    DEFAULT[REMOTE_NUM_LANES] = 2
+    DEFAULT[NUM_LANES] = 2
+    DEFAULT[RACE_TIMEOUT] = 5.0
     DEFAULT[REMOTE_CAR_ICONS] = ["question", "question", "question", "question"]
+    DEFAULT[REMOTE_NUM_LANES] = 2
+    DEFAULT[REMOTE_TRACK_NAME] = "UNKNOWN"
+    DEFAULT[SERVO_DOWN_VALUE] = 1.0
+    DEFAULT[SERVO_UP_VALUE] = 0.0
+    DEFAULT[TRACK_NAME] = "Track-1"
+    DEFAULT[WIFI_PSWD] = "<WIFI_PASSWORD>"
+    DEFAULT[WIFI_SSID] = "<WIFI_SSID>"
 
     def __init__(self, filename):
         self.__filename = filename
