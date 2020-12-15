@@ -16,9 +16,12 @@ Starting Gate:
 #         * Only if update needed, send UPFW command w/ bluetooth SSID and password
 #       Send encoded WiFI parameters to Finish Line if firmware update needed
 
+import bluetooth
+import json
+import operator
+import select
 import time
 import traceback
-import bluetooth
 
 from config import Config, NOT_FINISHED
 from coordinator import Coordinator
@@ -31,6 +34,7 @@ race_aborted = False # Set by key_pressed callback to reset race state
 finish_line_connected = False
 
 NANOSECONDS_TO_SECONDS = 1000000000
+READ_ONLY = select.POLLIN | select.POLLPRI | select.POLLHUP | select.POLLERR
 
 def key_pressed():
     """
@@ -70,9 +74,9 @@ def connect_to_finish_line(target_name):
                 break
 
         if target_address is None:
-            print("could not find FinishLine nearby")
+            print("could not find ", target_name, " nearby")
         else:
-            print("Found FinishLine, connecting...")
+            print("Found ", target_name, ", connecting...")
             socket = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
             socket.connect((target_address, port))
             finish_line_connected = True
@@ -80,21 +84,38 @@ def connect_to_finish_line(target_name):
             socket.send("HELO")
     return socket
 
-def reset_starting_gate():
+def reset_starting_gate(config):
     """ Set servo to midpoint position to close the starting gate """
-    SERVO.mid()
+    SERVO.value = config.servo_up_value
 
-def release_starting_gate():
+def release_starting_gate(config):
     """ Set servo to max position to release the starting gate """
-    SERVO.max()
+    SERVO.value =  config.servo_down_value
+
+def all_lanes_empty(config):
+    """ Scan the lane sensors to see if any lanes have cars present. """
+    num_lanes = config.num_lanes
+    sum = 0
+
+    if num_lanes == 1:
+        return LANE1.value == 0
+    if num_lanes == 2:
+        return LANE1.value + LANE2.value == 0
+    if num_lanes == 3:
+        return LANE1.value + LANE2.value + LANE3.value == 0
+    if num_lanes == 4:
+        return LANE1.value + LANE2.value + LANE3.value + LANE4.value == 0
+        
+    return sum == 0
+
 
 def all_lanes_ready(config):
     """ Scan the lane sensors to see if all lanes have cars present. """
 
-    print("LANE1 = ", LANE1.value)
-    print("LANE2 = ", LANE2.value)
-    print("LANE3 = ", LANE3.value)
-    print("LANE4 = ", LANE4.value)
+    #print("LANE1 = ", LANE1.value)
+    #print("LANE2 = ", LANE2.value)
+    #print("LANE3 = ", LANE3.value)
+    #print("LANE4 = ", LANE4.value)
 
     num_lanes = config.num_lanes
 
@@ -111,7 +132,7 @@ def all_lanes_ready(config):
 def purge_bluetooth_messages(socket):
     """ Read any residual data from the Finish Line bluetooth connection.
 
-    Before adding the STRT/ENDR message exchange to prevent the finish line
+    Before adding the BGIN/ENDR message exchange to prevent the finish line
     from sending results when something passed over a lane when no race was
     active, this purge was critical. Otherwise pending messages (for example
     from someone picking up a car from the finish line) would register before
@@ -166,9 +187,13 @@ def run_race(config, coordinator, display, socket):
         """
         Record the finish time for the specified lane in the times array
         """
+        if times[lane] != NOT_FINISHED:
+            print("lane ", lane+1, " reported redundant finish")
+            return
+
         end = time.monotonic_ns()
         delta = float(end - start) / NANOSECONDS_TO_SECONDS
-        print("Lane %d finished. Elapsed time: %6.3f" % (lane, delta))
+        print("Lane %d finished. Elapsed time: %6.3f" % (lane+1, delta))
         times[lane] = delta
 
     def all_lanes_finished():
@@ -180,31 +205,51 @@ def run_race(config, coordinator, display, socket):
                 return False
         return True
 
+    # Wait for cars on the local starting lanes
     display.wait_local_ready()
     print("Waiting for cars at the gate")
     while not all_lanes_ready(config):
-        time.sleep(1)
+        time.sleep(0.1)
     print("All Lanes Ready.")
 
     if config.multi_track:
+        print("Waiting for remote ready")
         display.wait_remote_ready()
+        coordinator.start_race()
+        print("Remote track ready")
 
+    # Send start of race message to finish line.
+    # The message is sent before the countdown because it can take more than 1 second
+    # for the bluetooth communication and the message to be picked up and processed by
+    # the finish line. Odd, given that the lane finished messages from the finish line
+    # are received nearly instantly.
+    socket.send("BGIN")
     display.countdown()
 
     purge_bluetooth_messages(socket)
+    poller = select.poll()
+    poller.register(socket, READ_ONLY)
 
     print("Start the race!")
-    release_starting_gate()
+    release_starting_gate(config)
 
-    socket.send("STRT")
+    display.race_started()
+
     start = time.monotonic_ns()
     timeout = start + config.race_timeout * NANOSECONDS_TO_SECONDS
 
     while not all_lanes_finished() and not race_aborted and time.monotonic_ns() < timeout:
         try:
-            data = socket.recv(5)
-            if not data:
-                break
+            events = poller.poll(100)
+            if events:
+                data = socket.recv(5)
+
+                msg = data.decode('utf-8')
+                print("received ", msg)
+
+                if msg.startswith("FIN"):
+                    lane_finished(lane_index(msg), finish_times)
+
         except bluetooth.btcommon.BluetoothError as exc:
             if exc.args[0] == 'timed out':
                 print("Timeout waiting for race results. Finishing race")
@@ -213,29 +258,36 @@ def run_race(config, coordinator, display, socket):
                 print("purge_bluetooth_messages(): BluetoothError, other reason =", exc.args)
                 raise exc
 
-        msg = data.decode('utf-8')
-        print("received ", msg)
-
-        if msg.startswith("FIN"):
-            lane_finished(lane_index(msg), finish_times)
-
 
     # Send end of race message to Finish Line to disable further completion messages
     socket.send("ENDR")
 
-    if not race_aborted:
-        print("Race finished")
-        results = []
-        for lane in range(num_lanes):
-            result = {}
-            result["laneNumber"] = lane
-            result["laneTime"] = finish_times[lane]
-            results.append(result)
+    if race_aborted:
+        return
 
-        # Send local results to race coordinator and await global results
-        if config.multi_track:
-            coordinator.results(results)
+    print("Race finished")
+    results = []
+    for lane in range(num_lanes):
+        result = {}
+        result["trackName"] = config.track_name
+        result["laneNumber"] = lane + 1
+        result["laneTime"] = finish_times[lane]
+        results.append(result)
 
+    results.sort(key = operator.itemgetter('laneTime'))
+
+    # Send local results to race coordinator and await global results
+    if config.multi_track:
+        results_string = coordinator.results(results)
+        results_json = json.loads(results_string)
+
+    reset_starting_gate(config)
+    display.race_finished(results_json)
+
+    # Placing a car on a lane terminates the results display and exits the race
+
+    while all_lanes_empty(config):
+        time.sleep(0.1)
 
 def main():
     """
@@ -248,7 +300,7 @@ def main():
     socket = None
     global finish_line_connected
 
-    reset_starting_gate()
+    reset_starting_gate(config)
 
     # Main loop to iterate over successive race configurations
     while True:
@@ -270,7 +322,9 @@ def main():
 
         # Register with the race coordinator if multi-track race selected in menu
         if config.multi_track:
+            display.wait_remote_registration()
             coordinator.register()
+            display.remote_registration_done()
 
         while not race_aborted:
             try:
@@ -283,7 +337,6 @@ def main():
                 print("Unexpected exception caught", exc)
                 traceback.print_exc()
 
-            reset_starting_gate()
 
 if __name__ == '__main__':
     main()
