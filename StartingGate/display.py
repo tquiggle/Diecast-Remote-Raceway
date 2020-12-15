@@ -114,8 +114,8 @@ class Display(threading.Thread):
         checks for cars via these callbacks and updates the display to
         show car icons at the start of lanes that have cars present.
         """
+        self.__reset_car_positions()
         self.state = RaceState.WAIT_LOCAL_READY
-
 
     def wait_remote_ready(self):
         """
@@ -149,10 +149,11 @@ class Display(threading.Thread):
 
     def race_finished(self, results):
         """
-        The race is running. Display cars moving randomly down the tracks.
+        The race is complete. Display race results
         """
         self.results = results
         self.state = RaceState.RACE_FINISHED
+        self.first_results_display = True
 
     def exit(self):
         """
@@ -185,12 +186,12 @@ class Display(threading.Thread):
             checkerboard_size = 64
             y_starting_offset = 10
 
-
         # Load the background image
         #background_image = self.pyray.load_image("images/background.png")
         background_image = self.pyray.load_image("images/raceoff-2.png")
         self.background_texture = self.pyray.load_texture_from_image(background_image)
         self.pyray.unload_image(background_image)
+        self.y_starting_offset = y_starting_offset
 
         checkerboard_image = self.pyray.load_image(
             "images/checkerboard-{}.png".format(checkerboard_size))
@@ -214,7 +215,6 @@ class Display(threading.Thread):
 
         # Load car textures for local track
         for car in range(self.config.num_lanes):
-            self.local_y[car] = y_starting_offset
             icon = self.config.car_icons[car]
             image = self.pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
             self.local_textures[car] = self.pyray.load_texture_from_image(image)
@@ -223,7 +223,6 @@ class Display(threading.Thread):
         if multi_track:
             # Load car textures for remote track
             for car in range(self.config.remote_num_lanes):
-                self.remote_y[car] = y_starting_offset
                 icon = self.config.remote_car_icons[car]
                 # TODO: Handle error condition where remote image isn't found locally
                 image = self.pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
@@ -273,6 +272,7 @@ class Display(threading.Thread):
         }
 
         # Declare initial Y offset for car images at the start of a race
+        self.y_starting_offset = 0
         self.local_y = [0, 0, 0, 0]
         self.remote_y = [0, 0, 0, 0]
 
@@ -292,6 +292,7 @@ class Display(threading.Thread):
         self.font = None
         self.menu = None
         self.results = None
+        self.first_results_display = None
 
         self.menu_event = threading.Event()
         self.menu_event.clear()
@@ -335,6 +336,13 @@ class Display(threading.Thread):
             self.dispatch[self.state]()
             self.pyray.end_drawing()
 
+    def __reset_car_positions(self):
+        for car in range(self.config.num_lanes):
+            self.local_y[car] = self.y_starting_offset
+        if self.config.multi_track:
+            for car in range(self.config.remote_num_lanes):
+                self.remote_y[car] = self.y_starting_offset
+
     def __text_box(self, text, x, y, width, height, size, inverted=False):
         """
         Draws a box at location (x,y) with width and height. Prints text with specified font size
@@ -363,7 +371,6 @@ class Display(threading.Thread):
             return 24
 
     def __text_message(self, text, inverted=False):
-        #print("displaying '", text, "' size=", self.__font_size(text))
         if len(text) >= 16:
             # Two line text box
             self.__text_box(text, 10, 90, 215, 68, self.__font_size(text), inverted)
@@ -418,7 +425,9 @@ class Display(threading.Thread):
             lane_time       elapsed time for the specified lane, or NOT_FINISHED
             place           1, 2, or 3 for First, Second or Third place
         """
-        print("__draw_result(", track_count, track_number, lane_number, lane_time, place, ")")
+        if self.first_results_display:
+            print("__draw_result(", track_count, track_number, lane_number, lane_time, place, ")")
+
         if track_count == 1:
             x_offset = 15 + (lane_number - 1)*100
             y_offset = 20 + (place)*40
@@ -440,7 +449,7 @@ class Display(threading.Thread):
 
     def __wait_finish_line(self):
         finish_line_name = self.config.finish_line_name
-        self.__text_message("Connecting to ", finish_line_name)
+        self.__text_message("Connecting to " + finish_line_name)
 
     def __wait_remote_registration(self):
         self.__text_message("Waiting for: remote track")
@@ -451,7 +460,7 @@ class Display(threading.Thread):
             return
 
         print("__remote_registration_done: remote_num_lanes=", self.config.remote_num_lanes)
-        print("  remote_caer_icons=", self.config.remote_car_icons)
+        print("  remote_car_icons=", self.config.remote_car_icons)
         for car in range(self.config.remote_num_lanes):
             icon = self.config.remote_car_icons[car]
             self.local_y[car] = 40
@@ -508,7 +517,9 @@ class Display(threading.Thread):
     def __race_finished(self):
         # TODO: use IP address in results payload to determine own track vs other track to
         #       disambiguate in the event both tracks are set to the same name.
-        print("__race_finished. results =", self.results)
+        if self.first_results_display:
+            print("__race_finished(): results =", self.results)
+
         track_count = 2 if self.config.multi_track else 1
         place = 0
         for result in self.results:
@@ -519,6 +530,7 @@ class Display(threading.Thread):
             place += 1
             if place > 2:
                 break
+        self.first_results_display = False
 
     def __race_timeout(self):
         self.__text_message("Race Timed Out")
