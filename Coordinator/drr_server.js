@@ -36,6 +36,7 @@
  * Running on Google Cloud Platform:
  *
  *   TODO: Provide instructions on how to run in GCP
+ *         Notify other participants when a track times out and is removed from a circuit
  *
  */
 
@@ -48,7 +49,7 @@ const cron = require('node-cron')
 /* Globals */
 const makeAsyncBarrier = require('async-barrier')
 const port = 1968 // The year Mattel introduced Hot Wheels to the market
-const idleTimeoutMilliseconds = 5 * 60 * 1000
+const idleTimeoutMilliseconds = 60 * 60 * 1000
 const hostname = os.hostname()
 const defaultCircuit = 'DRR'
 
@@ -75,8 +76,8 @@ circuits[defaultCircuit].registerBarrier = null
 cron.schedule('* * * * *', function() {
     now = Date.now()
     for (circuit in circuits) {
-        for (participant in circuits[circuit].participants) {
-            if (now - circuits[circuit].participants[participant].lastRequestTime > idleTimeoutMilliseconds) {
+        for (ip in circuits[circuit].participants) {
+            if (now - circuits[circuit].participants[ip].lastRequestTime > idleTimeoutMilliseconds) {
                 console.log(`ip ${ip} timed out from cicuit ${circuit}`)
                 deregister(ip)
             }
@@ -96,7 +97,7 @@ function deregister(ip) {
             circuits[circuit].participants.splice(index, 1)
             circuits[circuit].numParticipants--
             circuits[circuit].results = []
-            ircuits[circuit].startBarrier = makeAsyncBarrier(circuits[circuit].numParticipants)
+            circuits[circuit].startBarrier = makeAsyncBarrier(circuits[circuit].numParticipants)
             delete circuits[circuit].registerBarrier;
         } else {
             console.log(`ip ${ip} found in ipToCircuit, but not in circuit ${circuit}.participants`)
@@ -142,12 +143,14 @@ function register(ip, registration) {
     circuits[circuit].participants[ip].lastRequestTime = Date.now()
     ipToCircuit[ip] = circuit
 
-    if (numParticipants = circuits[circuit].numParticipants == 1) {
-        /* This is the first registration in the circuit. Create the barrier to syncronize registrations */
+    numParticipants = circuits[circuit].numParticipants
+    if (numParticipants == 1) {
+        /* This is the first registration in the circuit.  Create the barrier to syncronize registrations */
+        console.log(`creating registrationBarrier for {circuit}`)
         circuits[circuit].registrationBarrier = makeAsyncBarrier(2)
     }
 
-    console.log(`Registration complete,numParticipants: ${numParticipants}`)
+    console.log(`Registration complete, numParticipants: ${numParticipants}`)
     console.log("")
 
     return circuit
@@ -233,7 +236,7 @@ server.post('/register', async function(req, res) {
     }
 
     res.writeHead(200, {
-        'Content-Type': 'text/application-json'
+        'Content-Type': 'application/json'
     })
     res.write(JSON.stringify(results))
     res.end()
