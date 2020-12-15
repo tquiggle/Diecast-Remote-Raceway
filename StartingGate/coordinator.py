@@ -56,36 +56,30 @@ class Coordinator:
 
         See Coordinator/drr_server.js for detail of the json request/response format
         """
+        headers = {'Content-Type': 'application/json'}
+
         registration = {}
         registration['circuit'] = self.config.circuit
-        registration['displayName'] = self.config.track_name
+        registration['trackName'] = self.config.track_name
         registration['numLanes'] = self.config.num_lanes
+        registration['carIcons'] = self.config.car_icons
 
-        car_icons = []
-        if self.config.num_lanes >= 1:
-            car_icons.append(self.config.car_1_icon)
-        if self.config.num_lanes >= 2:
-            car_icons.append(self.config.car_2_icon)
-        if self.config.num_lanes >= 3:
-            car_icons.append(self.config.car_3_icon)
-        if self.config.num_lanes >= 4:
-            car_icons.append(self.config.car_4_icon)
-
-        registration['carIcons'] = car_icons
         json_string = json.dumps(registration).encode('utf-8')
 
         print("register: ", json_string)
-        response = requests.post(self.register_url, data=json_string)
+        response = requests.post(self.register_url, data=json_string, headers=headers)
         print("response=", response)
-        print("response.text=", response.text)
 
-        reply = json.loads(response.text)
+        reply = response.json()
 
-        remote = reply.remoteRegistrations[0]
-        self.config.ip = reply.ip
-        self.config.remote_track_name = remote.trackName
-        self.config.remote_num_lanes = remote.numLanes
-        self.config.remote_car_icons = remote.carIcons
+        print("reply=", reply)
+
+        remote = reply['remoteRegistrations'][0]
+
+        self.config.ip_address = reply['ip']
+        self.config.remote_track_name = remote['trackName']
+        self.config.remote_num_lanes = remote['numLanes']
+        self.config.remote_car_icons = remote['carIcons']
 
     def deregister(self):
         """
@@ -109,11 +103,12 @@ class Coordinator:
         Send local race results to the race coordintor and collect circuit-wide results
         in the response.
         """
+        headers = {'Content-Type': 'application/json'}
 
         json_string = json.dumps(local_results).encode('utf-8')
 
         print("register: ", json_string)
-        response = requests.post(self.results_url, data=json_string)
+        response = requests.post(self.results_url, data=json_string, headers=headers)
         print("response=", response)
 
         print("response.text=", response.text)
