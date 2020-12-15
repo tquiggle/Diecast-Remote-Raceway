@@ -39,7 +39,7 @@ full license information.
 #include <SPIFFS.h>
 
 // Hard coded config
-const char* FW_VERSION = "20120405";
+const char* FW_VERSION = "20120501";
                        // YYMMDDVV Last two digits of Year, Month, Day, Version
 const char* fwVersionURLtemplate = "http://%s:%d/DRR/FL/version.txt";
 const char* fwURLtemplate = "http://%s:%d/DRR/FL/finish-line-%0d.bin";
@@ -205,7 +205,7 @@ bool readConfig(const char* filename) {
     Serial.print("  wifiSSID = ");
     Serial.println(wifiSSID);
   }
-  if (doc.containsKey("  wifiPassword  ")) {
+  if (doc.containsKey("wifiPassword")) {
     wifiPassword = doc["wifiPassword"].as<String>();
     Serial.print("  wifiPassword = ");
     Serial.println(wifiPassword);
@@ -266,7 +266,7 @@ bool getConfig(String configStr) {
 
 // Process a SETC command received via Bluetooth to update
 bool setConfig(String configStr) {
-  Serial.printf("setConfig(): configStr=%s\n", configStr);
+  Serial.printf("setConfig(): configStr=%s\n", configStr.c_str());
   String key;
   String value;
 
@@ -279,7 +279,7 @@ bool setConfig(String configStr) {
     return false;
   }
 
-  Serial.printf("setConfig(): key=%s, value=%s\n", key, value);
+  Serial.printf("setConfig(): key=%s, value=%s\n", key.c_str(), value.c_str());
   if (key == "wifiSSID") {
     wifiSSID = value;
   } else if  (key == "wifiPassword") {
