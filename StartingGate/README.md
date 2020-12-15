@@ -6,7 +6,7 @@ This directory contains the 3D models, software and instructions for the Startin
 
 ### Starting Gate
 
-The Starting Gate is derived from the excelent design by 
+The Starting Gate is derived from the excellent design by 
 [capsurfer](https://www.thingiverse.com/capsurfer/about) on 
 [Thingiverse](https://www.thingiverse.com/thing:4026846) with a number of modifications to adapt it to automation.
 
@@ -25,7 +25,7 @@ The following components have been modified to suit automation
 
 * open-box.stl - a modified version of box.stl to insert the track with a mounted sensor from the back of the box. The sensor would collide with the starter if inserted from the front.
 * open-box-servo.stl - a modified version of open-box.stl for Lane 1 with an opening and mounting holes for a MG90S servo.
-* sensor-track.stl - a modfied version of track.stl designed to mount a [TCRT5000 Infrared Reflective Sensor Module](https://www.amazon.com/gp/product/B081RPJ44L) to detect the presence of a car.
+* sensor-track.stl - a modified version of track.stl designed to mount a [TCRT5000 Infrared Reflective Sensor Module](https://www.amazon.com/gp/product/B081RPJ44L) to detect the presence of a car.
 
 * sensor-track-flush.stl - a modified version of sensor-track.stl that moves the sensor forward about 10mm.  Requires reworking the TCRT5000 sensors. See note below.
 * servo-knob.stl - Modified version of knob.stl to make the arm much narrower and add holes for the servo control.
@@ -199,7 +199,7 @@ work with the 5.4 kernel.  Get the download image from:
 
       ```
       % sudo apt-get install python3 python3-gpiozero python3-pigpio python3-bluez python3-pip wiringpi
-      % suto apt autoremove
+      % sudo apt autoremove
       ```
 
 1.  Have pigpiod start on every boot
