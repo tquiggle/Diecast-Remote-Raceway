@@ -43,7 +43,7 @@ LANE2 = DigitalInputDevice("GPIO23", True, None, 0.200)        # Pin 16
 LANE3 = DigitalInputDevice("GPIO22", True, None, 0.200)        # Pin 15
 LANE4 = DigitalInputDevice("GPIO4",  True, None, 0.200)        # Pin 07
 
-SERVO = Servo("GPIO12", 0.0, 0.0005, 0.0025)                   # Pin 32
+SERVO = Servo("GPIO12")                                        # Pin 32
 
 # pylint: enable=bad-whitespace
 
