@@ -2,6 +2,8 @@
 
 This directory contains the 3D models, software and instructions for the Starting Gate component of the Diecast Remote Raceway.
 
+![Starting Gate](../images/Starting-Gate.jpg)
+
 ## 3D Printed Components
 
 ### Starting Gate
