@@ -9,6 +9,13 @@ software. It performs two functions:
 * checks for a software update and installs if available
 * executes the starting gate executable as a child and restarts on failure.
 
+Author: Tom Quiggle
+tquiggle@gmail.com
+https://github.com/tquiggle/Die-Cast-Remote-Raceway
+
+Copyright (c) Thomas Quiggle. All rights reserved.
+
+Licensed under the MIT license. See LICENSE file in the project root for full license information.
 """
 
 import os

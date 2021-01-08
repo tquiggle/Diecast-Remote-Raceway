@@ -7,14 +7,22 @@ Starting Gate:
     It coordinates with the Finish Line component to run races locally, and the
     Race Coordinator for multi-track races.
 
+ TODO:
+       Clean up startup process
+         * After exchanging HELLO messages, request version from FL
+         * Do version check on SG
+         * Only if update needed, send UPFW command w/ bluetooth SSID and password
+       Send encoded WiFI parameters to Finish Line if firmware update needed
+
+Author: Tom Quiggle
+tquiggle@gmail.com
+https://github.com/tquiggle/Die-Cast-Remote-Raceway
+
+Copyright (c) Thomas Quiggle. All rights reserved.
+
+Licensed under the MIT license. See LICENSE file in the project root for full license information.
 """
 
-# TODO:
-#       Clean up startup process
-#         * After exchanging HELLO messages, request version from FL
-#         * Do version check on SG
-#         * Only if update needed, send UPFW command w/ bluetooth SSID and password
-#       Send encoded WiFI parameters to Finish Line if firmware update needed
 
 import bluetooth
 import json
@@ -111,11 +119,6 @@ def all_lanes_empty(config):
 
 def all_lanes_ready(config):
     """ Scan the lane sensors to see if all lanes have cars present. """
-
-    #print("LANE1 = ", LANE1.value)
-    #print("LANE2 = ", LANE2.value)
-    #print("LANE3 = ", LANE3.value)
-    #print("LANE4 = ", LANE4.value)
 
     num_lanes = config.num_lanes
 
