@@ -68,7 +68,8 @@ def check_for_updates():
             return
 
         return_status = os.system("tar xzf {}".format(release_file))
-        code = os.waitstatus_to_exitcode(return_status)
+        # needs Python 3.9:  code = os.waitstatus_to_exitcode(return_status)
+        code = os.WEXITSTATUS(return_status)
         if code != 0:
             print("Error extracting", release_file)
 
