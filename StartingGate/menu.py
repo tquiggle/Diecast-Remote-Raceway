@@ -6,21 +6,23 @@ Diecast Remote Raceway - Menu
 The menu hierarchy and associated enum values are described below.
 
 My original thought was that I could intelligently use the enum values
-in computing transitions while walking the hierarchy.  One digit
-values representing top level menu items, two digit values representing
-second level menu items, three digit values third level, etc.
-This didn't prove very useful.
+in computing transitions while walking the hierarchy.  One digit values
+representing top level menu items, two digit values representing second
+level menu items, three digit values third level, etc.  This didn't
+prove very useful.
 
-The top level menu is treated special. Input is via one of the
-three buttons on the right of the display.  The user can select from
-"Single Track," "Multi Track" or "Configure" by just pressing the
-adjacent button and the action is immediate.  If the user selects
-"Configure" they are dumped into the various configuration options
-where navigation is done using the joystick. Menu items are selected
-by pushing the joystick button.  See the Input class for details on
-how text input is handled.
+The top level menu is treated special. Input is via one of the three
+buttons on the right of the display.  The user can select from "Single
+Track," "Multi Track" or "Configure" by just pressing the adjacent button
+and the action is immediate.  If the user selects "Configure" they are
+dumped into the various configuration options where navigation is done
+using the joystick. Menu items are selected by pushing the joystick
+button.  See the Input class for details on how text input is handled.
 
-TODO: Add menu item to select the name of the finish line to connect to
+TODO:
+
+   * Add menu item to select the name of the finish line to connect to
+   * Implement RESET logic to delete saved config and reload from defaults
 
 Logical Menu Layout:
 
@@ -59,12 +61,14 @@ Logical Menu Layout:
                 * ENTER_COORD_HOSTNAME =3711
             * COORD_PORT = 372
                 * ENTER_COORD_PORT =3721
-        * RESET = 38
-            * PERFORM_RESET = 381
-
-        Note: in any other language, I would have just layed out the enum declaration
-        with the above indentation to visually indicate the hiearchy.  But alas, Python
-        won't permit it.
+        * SERVO_LIMITS = 38
+            # __servo_menu
+            * SERVO_DOWN_VALUE = 381
+                * ENTER_SERVO_DOWN_VALUE = 3811
+            * SERVO_UP_VALUE = 382
+                * ENTER_SERVO_UP_VALUE = 3821
+        * RESET = 39
+            * PERFORM_RESET = 391
 
 Author: Tom Quiggle
 tquiggle@gmail.com
@@ -79,7 +83,7 @@ import enum
 import glob
 import time
 
-from deviceio import DeviceIO, JOYU, JOYD, JOYL, JOYR, JOYP
+from deviceio import DeviceIO, JOYU, JOYD, JOYL, JOYR, JOYP, SERVO
 from input import Input, MODE_SPECIAL
 from config import Config
 
@@ -103,7 +107,8 @@ class MenuState(enum.Enum):
     RACE_TIMEOUT = 35
     WIFI_SETUP = 36
     COORDINATOR_SETUP = 37
-    RESET = 38
+    SERVO_LIMITS = 38
+    RESET = 39
     # __car_menu()
     CAR_1_ICON = 331
     CAR_2_ICON = 332
@@ -115,21 +120,26 @@ class MenuState(enum.Enum):
     # __controller_menu()
     COORD_HOSTNAME = 371
     COORD_PORT = 372
+    # __servo_menu
+    SERVO_DOWN_VALUE = 381
+    SERVO_UP_VALUE = 382
     # __perform_reset()
-    PERFORM_RESET = 381
+    PERFORM_RESET = 391
     # Terminal entries in menu where we accept user input
     ENTER_TRACK_NAME = 311
     ENTER_NUM_LANES = 321
+    SELECT_CAR_1_ICON = 3311
+    SELECT_CAR_2_ICON = 3321
+    SELECT_CAR_3_ICON = 3331
+    SELECT_CAR_4_ICON = 3341
     ENTER_CIRCUIT_NAME = 341
     ENTER_RACE_TIMEOUT = 351
     ENTER_WIFI_SSID = 3611
     ENTER_WIFI_PSWD = 3621
     ENTER_COORD_HOSTNAME = 3711
     ENTER_COORD_PORT = 3721
-    SELECT_CAR_1_ICON = 3311
-    SELECT_CAR_2_ICON = 3321
-    SELECT_CAR_3_ICON = 3331
-    SELECT_CAR_4_ICON = 3341
+    ENTER_SERVO_DOWN_VALUE = 3811
+    ENTER_SERVO_UP_VALUE = 3821
 
     def next(self):
         """
@@ -173,7 +183,10 @@ UP[MenuState.WIFI_PSWD] = MenuState.WIFI_SSID
 UP[MenuState.COORDINATOR_SETUP] = MenuState.WIFI_SETUP
 UP[MenuState.COORD_HOSTNAME] = MenuState.COORD_PORT
 UP[MenuState.COORD_PORT] = MenuState.COORD_HOSTNAME
-UP[MenuState.RESET] = MenuState.COORDINATOR_SETUP
+UP[MenuState.SERVO_LIMITS] = MenuState.COORDINATOR_SETUP
+UP[MenuState.RESET] = MenuState.SERVO_LIMITS
+UP[MenuState.SERVO_DOWN_VALUE] = MenuState.SERVO_UP_VALUE
+UP[MenuState.SERVO_UP_VALUE] = MenuState.SERVO_DOWN_VALUE
 UP[MenuState.ENTER_TRACK_NAME] = MenuState.ENTER_TRACK_NAME
 UP[MenuState.ENTER_NUM_LANES] = MenuState.ENTER_NUM_LANES
 UP[MenuState.ENTER_CIRCUIT_NAME] = MenuState.ENTER_CIRCUIT_NAME
@@ -182,6 +195,8 @@ UP[MenuState.ENTER_WIFI_SSID] = MenuState.ENTER_WIFI_SSID
 UP[MenuState.ENTER_WIFI_PSWD] = MenuState.ENTER_WIFI_PSWD
 UP[MenuState.ENTER_COORD_HOSTNAME] = MenuState.ENTER_COORD_HOSTNAME
 UP[MenuState.ENTER_COORD_PORT] = MenuState.ENTER_COORD_PORT
+UP[MenuState.ENTER_SERVO_UP_VALUE] = MenuState.ENTER_SERVO_UP_VALUE
+UP[MenuState.ENTER_SERVO_DOWN_VALUE] = MenuState.ENTER_SERVO_DOWN_VALUE
 UP[MenuState.SELECT_CAR_1_ICON] = MenuState.SELECT_CAR_1_ICON
 UP[MenuState.SELECT_CAR_2_ICON] = MenuState.SELECT_CAR_2_ICON
 UP[MenuState.SELECT_CAR_3_ICON] = MenuState.SELECT_CAR_3_ICON
@@ -192,6 +207,7 @@ DOWN = {}
 DOWN[MenuState.SINGLE_TRACK] = MenuState.MULTI_TRACK
 DOWN[MenuState.MULTI_TRACK] = MenuState.CONFIGURE
 DOWN[MenuState.CONFIGURE] = MenuState.SINGLE_TRACK
+
 DOWN[MenuState.TRACK_NAME] = MenuState.NUM_LANES
 DOWN[MenuState.NUM_LANES] = MenuState.CAR_ICONS
 DOWN[MenuState.CAR_ICONS] = MenuState.CIRCUIT_NAME
@@ -204,9 +220,12 @@ DOWN[MenuState.RACE_TIMEOUT] = MenuState.WIFI_SETUP
 DOWN[MenuState.WIFI_SETUP] = MenuState.COORDINATOR_SETUP
 DOWN[MenuState.WIFI_SSID] = MenuState.WIFI_PSWD
 DOWN[MenuState.WIFI_PSWD] = MenuState.WIFI_SSID
-DOWN[MenuState.COORDINATOR_SETUP] = MenuState.RESET
+DOWN[MenuState.COORDINATOR_SETUP] = MenuState.SERVO_LIMITS
 DOWN[MenuState.COORD_HOSTNAME] = MenuState.COORD_PORT
 DOWN[MenuState.COORD_PORT] = MenuState.COORD_HOSTNAME
+DOWN[MenuState.SERVO_LIMITS] = MenuState.RESET
+DOWN[MenuState.SERVO_DOWN_VALUE] = MenuState.SERVO_UP_VALUE
+DOWN[MenuState.SERVO_UP_VALUE] = MenuState.SERVO_DOWN_VALUE
 DOWN[MenuState.RESET] = MenuState.TRACK_NAME
 DOWN[MenuState.ENTER_TRACK_NAME] = MenuState.ENTER_TRACK_NAME
 DOWN[MenuState.ENTER_NUM_LANES] = MenuState.ENTER_NUM_LANES
@@ -215,6 +234,8 @@ DOWN[MenuState.ENTER_RACE_TIMEOUT] = MenuState.ENTER_RACE_TIMEOUT
 DOWN[MenuState.ENTER_WIFI_SSID] = MenuState.ENTER_WIFI_SSID
 DOWN[MenuState.ENTER_WIFI_PSWD] = MenuState.ENTER_WIFI_PSWD
 DOWN[MenuState.ENTER_COORD_HOSTNAME] = MenuState.ENTER_COORD_HOSTNAME
+DOWN[MenuState.ENTER_SERVO_UP_VALUE] = MenuState.ENTER_SERVO_DOWN_VALUE
+DOWN[MenuState.ENTER_SERVO_DOWN_VALUE] = MenuState.ENTER_SERVO_UP_VALUE
 DOWN[MenuState.ENTER_COORD_PORT] = MenuState.ENTER_COORD_PORT
 DOWN[MenuState.SELECT_CAR_1_ICON] = MenuState.SELECT_CAR_1_ICON
 DOWN[MenuState.SELECT_CAR_2_ICON] = MenuState.SELECT_CAR_2_ICON
@@ -241,6 +262,9 @@ LEFT[MenuState.WIFI_PSWD] = MenuState.WIFI_SETUP
 LEFT[MenuState.COORDINATOR_SETUP] = MenuState.CONFIGURE
 LEFT[MenuState.COORD_HOSTNAME] = MenuState.COORDINATOR_SETUP
 LEFT[MenuState.COORD_PORT] = MenuState.COORDINATOR_SETUP
+LEFT[MenuState.SERVO_LIMITS] = MenuState.CONFIGURE
+LEFT[MenuState.SERVO_DOWN_VALUE] = MenuState.SERVO_LIMITS
+LEFT[MenuState.SERVO_UP_VALUE] = MenuState.SERVO_LIMITS
 LEFT[MenuState.RESET] = MenuState.CONFIGURE
 LEFT[MenuState.ENTER_TRACK_NAME] = MenuState.TRACK_NAME
 LEFT[MenuState.ENTER_NUM_LANES] = MenuState.NUM_LANES
@@ -250,6 +274,8 @@ LEFT[MenuState.ENTER_WIFI_SSID] = MenuState.WIFI_SSID
 LEFT[MenuState.ENTER_WIFI_PSWD] = MenuState.WIFI_PSWD
 LEFT[MenuState.ENTER_COORD_HOSTNAME] = MenuState.COORD_HOSTNAME
 LEFT[MenuState.ENTER_COORD_PORT] = MenuState.COORD_PORT
+LEFT[MenuState.ENTER_SERVO_UP_VALUE] = MenuState.SERVO_LIMITS
+LEFT[MenuState.ENTER_SERVO_DOWN_VALUE] = MenuState.SERVO_LIMITS
 LEFT[MenuState.SELECT_CAR_1_ICON] = MenuState.CAR_1_ICON
 LEFT[MenuState.SELECT_CAR_2_ICON] = MenuState.CAR_2_ICON
 LEFT[MenuState.SELECT_CAR_3_ICON] = MenuState.CAR_3_ICON
@@ -275,6 +301,7 @@ SELECT[MenuState.WIFI_PSWD] = MenuState.ENTER_WIFI_PSWD
 SELECT[MenuState.COORDINATOR_SETUP] = MenuState.COORD_HOSTNAME
 SELECT[MenuState.COORD_HOSTNAME] = MenuState.ENTER_COORD_HOSTNAME
 SELECT[MenuState.COORD_PORT] = MenuState.ENTER_COORD_PORT
+SELECT[MenuState.SERVO_LIMITS] = MenuState.SERVO_DOWN_VALUE
 SELECT[MenuState.RESET] = MenuState.RESET
 SELECT[MenuState.ENTER_TRACK_NAME] = MenuState.ENTER_TRACK_NAME
 SELECT[MenuState.ENTER_NUM_LANES] = MenuState.ENTER_NUM_LANES
@@ -284,13 +311,12 @@ SELECT[MenuState.ENTER_WIFI_SSID] = MenuState.ENTER_WIFI_SSID
 SELECT[MenuState.ENTER_WIFI_PSWD] = MenuState.ENTER_WIFI_PSWD
 SELECT[MenuState.ENTER_COORD_HOSTNAME] = MenuState.ENTER_COORD_HOSTNAME
 SELECT[MenuState.ENTER_COORD_PORT] = MenuState.ENTER_COORD_PORT
+SELECT[MenuState.SERVO_DOWN_VALUE] = MenuState.ENTER_SERVO_DOWN_VALUE
+SELECT[MenuState.SERVO_UP_VALUE] = MenuState.ENTER_SERVO_UP_VALUE
 SELECT[MenuState.SELECT_CAR_1_ICON] = MenuState.SELECT_CAR_1_ICON
 SELECT[MenuState.SELECT_CAR_2_ICON] = MenuState.SELECT_CAR_2_ICON
 SELECT[MenuState.SELECT_CAR_3_ICON] = MenuState.SELECT_CAR_3_ICON
 SELECT[MenuState.SELECT_CAR_4_ICON] = MenuState.SELECT_CAR_4_ICON
-
-# Display function to call based on current menu position
-FUNCTION = {}
 
 # Text string displayed for each menu position
 TEXT = {}
@@ -312,11 +338,16 @@ TEXT[MenuState.WIFI_PSWD] = "WiFi Password"
 TEXT[MenuState.COORDINATOR_SETUP] = "Coordinator"
 TEXT[MenuState.COORD_HOSTNAME] = "Coordinator Hostname"
 TEXT[MenuState.COORD_PORT] = "Coordinator Port"
+TEXT[MenuState.SERVO_LIMITS] = "Servo Limits"
+TEXT[MenuState.SERVO_DOWN_VALUE] = "Servo Down Value"
+TEXT[MenuState.SERVO_UP_VALUE] = "Servo Up Value"
 TEXT[MenuState.RESET] = "Factory Reset"
+
+# Display function to call based on current menu position
+FUNCTION = {}
 
 class Menu():
     """
-
     This class implements the menu displayed at startup.  There is a single public
     method, process_menus(), to perform all menu operations.
 
@@ -331,7 +362,7 @@ class Menu():
         The main method that displays and walks the menu tree. The choice of
         SINGLE_TRACK vs MULTI_TRACK is set in the config.num_tracks
 
-        The config is written back to diski if it was modified
+        The config is written back to disk if it was modified
         """
 
         print("process_menus: self=", self)
@@ -370,15 +401,17 @@ class Menu():
         self.num_lanes_selected = False
         self.num_lanes_pos = False
 
+        # Initialize attributes used to set servo limits
+        self.servo_down_value_updated = False
+        self.servo_up_value_updated = False
+
         self.cursor_pos = MenuState.SINGLE_TRACK         # Start at the top of the main menu
         self.current_func = self.__top_menu              # Dispaly loop calls __top_menu function
-
         self.config_window_top = MenuState.TRACK_NAME    # Initial config menu window top
         self.config_window_bottom = MenuState.TRACK_NAME # Initial config menu window bottom
         self.config_menu_pos = self.config_window_top    # Initial window position for config menu
-        self.config_menu_first = MenuState.TRACK_NAME    # Top of config menu, up from here wraps
+        self.config_menu_first = MenuState.TRACK_NAME    # Top of config menu, up wraps
         self.config_menu_last = MenuState.RESET          # Bottom of config menu, down wraps
-
         self.last_cursor_pos = MenuState.RESET
         self.__init_function_pointers()
 
@@ -388,9 +421,7 @@ class Menu():
         self.car_textures = []
         self.car_icon_selected = None
 
-        #background_image = self.pyray.load_image("images/raceoff.png")
         background_image = self.pyray.load_image("images/background.png")
-        #background_image = self.pyray.load_image("images/background-2.png")
 
         self.background_texture = self.pyray.load_texture_from_image(background_image)
         self.pyray.unload_image(background_image)
@@ -434,6 +465,9 @@ class Menu():
         FUNCTION[MenuState.COORDINATOR_SETUP] = self.__config_menu
         FUNCTION[MenuState.COORD_HOSTNAME] = self.__controller_menu
         FUNCTION[MenuState.COORD_PORT] = self.__controller_menu
+        FUNCTION[MenuState.SERVO_LIMITS] = self.__config_menu
+        FUNCTION[MenuState.SERVO_DOWN_VALUE] = self.__servo_menu
+        FUNCTION[MenuState.SERVO_UP_VALUE] = self.__servo_menu
         FUNCTION[MenuState.RESET] = self.__config_menu
         FUNCTION[MenuState.ENTER_TRACK_NAME] = self.__enter_track_name
         FUNCTION[MenuState.ENTER_NUM_LANES] = self.__enter_num_lanes
@@ -443,6 +477,8 @@ class Menu():
         FUNCTION[MenuState.ENTER_WIFI_PSWD] = self.__enter_wifi_pswd
         FUNCTION[MenuState.ENTER_COORD_HOSTNAME] = self.__enter_coord_host
         FUNCTION[MenuState.ENTER_COORD_PORT] = self.__enter_coord_port
+        FUNCTION[MenuState.ENTER_SERVO_DOWN_VALUE] = self.__enter_servo_down
+        FUNCTION[MenuState.ENTER_SERVO_UP_VALUE] = self.__enter_servo_up
         FUNCTION[MenuState.SELECT_CAR_1_ICON] = self.__select_car_1_icon
         FUNCTION[MenuState.SELECT_CAR_2_ICON] = self.__select_car_2_icon
         FUNCTION[MenuState.SELECT_CAR_3_ICON] = self.__select_car_3_icon
@@ -507,9 +543,9 @@ class Menu():
 
         #pylint: disable=bad-whitespace
         self.__text_box("Coordinator:",  0,   0, 210, 40, 28)
-        self.__text_box("Hostname",    10,  53, 210, 40, 28,
+        self.__text_box("Hostname",     10,  53, 210, 40, 28,
                         self.cursor_pos == MenuState.COORD_HOSTNAME)
-        self.__text_box("Port",        10, 146, 210, 40, 28,
+        self.__text_box("Port",         10, 146, 210, 40, 28,
                         self.cursor_pos == MenuState.COORD_PORT)
 
     def __load_car_textures(self):
@@ -549,7 +585,6 @@ class Menu():
         self.device.pop_key_handlers()
         self.cursor_pos = MenuState.CAR_ICONS
 
-
     def __select_car_1_icon(self):
         self.car_icon_selected = False
         self.__enter_car_icon(0)
@@ -575,33 +610,33 @@ class Menu():
         Perform action to enter circuit name
         """
         circuit_name = self.input.get_string()
-        self.__display_setting(TEXT[MenuState.CIRCUIT_NAME], circuit_name)
-        self.cursor_pos = MenuState.CIRCUIT_NAME
-        if circuit_name != self.config.circuit:
-            self.config_updated = True
+        if circuit_name and (circuit_name != self.config.circuit):
             self.config.circuit = circuit_name
+            self.config_updated = True
+        self.__display_setting(TEXT[MenuState.CIRCUIT_NAME], self.config.circuit_name)
+        self.cursor_pos = MenuState.CIRCUIT_NAME
 
     def __enter_coord_host(self):
         """
         Perform action to enter coordinator hostname
         """
         coord_host = self.input.get_string()
-        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], coord_host)
-        self.cursor_pos = MenuState.COORD_HOSTNAME
-        if coord_host != self.config.coord_host:
-            self.config_updated = True
+        if coord_host and (coord_host != self.config.coord_host):
             self.config.coord_host = coord_host
+            self.config_updated = True
+        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], self.config.coord_host)
+        self.cursor_pos = MenuState.COORD_HOSTNAME
 
     def __enter_coord_port(self):
         """
         Perform action to enter controller port
         """
         coord_port = self.input.get_string(MODE_SPECIAL)
-        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], coord_port)
-        self.cursor_pos = MenuState.COORD_PORT
-        if coord_port != self.config.coord_port:
-            self.config_updated = True
+        if coord_port and (coord_port != self.config.coord_port):
             self.config.coord_port = coord_port
+            self.config_updated = True
+        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], self.config.coord_port)
+        self.cursor_pos = MenuState.COORD_PORT
 
     def __enter_num_lanes(self):
         """
@@ -655,26 +690,16 @@ class Menu():
         self.config_updated = self.config.race_timeout != original_timeout
 
 
-    def __enter_track_name(self):
-        """
-        Perform action to enter track name
-        """
-        track_name = self.input.get_string()
-        self.__display_setting(TEXT[MenuState.TRACK_NAME], track_name)
-        self.config.track_name = track_name
-        self.cursor_pos = MenuState.TRACK_NAME
-        self.config_updated = True
-
     def __enter_wifi_pswd(self):
         """
         Perform action to enter WiFi password
         """
         wifi_pswd = self.input.get_string()
-        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], wifi_pswd)
-        self.cursor_pos = MenuState.WIFI_PSWD
-        if wifi_pswd != self.config.wifi_pswd:
-            self.config_updated = True
+        if wifi_pswd and (wifi_pswd != self.config.wifi_pswd):
             self.config.wifi_pswd = wifi_pswd
+            self.config_updated = True
+        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], self.config.wifi_pswd)
+        self.cursor_pos = MenuState.WIFI_PSWD
 
     def __enter_wifi_ssid(self):
         """
@@ -684,12 +709,81 @@ class Menu():
               and implement chooser rather than having to enter the SSID.
         """
         wifi_ssid = self.input.get_string()
-        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], wifi_ssid)
-        self.cursor_pos = MenuState.WIFI_SSID
-        if wifi_ssid != self.config.wifi_ssid:
-            self.config_updated = True
+        if wifi_ssid and (wifi_ssid != self.config.wifi_ssid):
             self.config.wifi_ssid = wifi_ssid
+            self.config_updated = True
+        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], self.config.wifi_ssid)
+        self.cursor_pos = MenuState.WIFI_SSID
 
+    def __servo_menu(self):
+        """
+        Display menu to set servo limits
+        """
+
+        self.__text_box("Servo Limits:", 00, 0, 210, 40, 28)
+        self.__text_box("Down", 10, 53, 210, 40, 28, self.cursor_pos == MenuState.SERVO_DOWN_VALUE)
+        self.__text_box("Up", 10, 146, 210, 40, 28, self.cursor_pos == MenuState.SERVO_UP_VALUE)
+
+    def __enter_servo_down(self):
+        """
+        Perform action to enter servo down limit value
+        """
+        print("__enter_servo_down:")
+        self.device.push_key_handlers(self.__key_noop, self.__key_noop, self.__key_noop,
+                                      self.__joystick_enter_servo_down)
+        self.servo_down_value_updated = False
+        original_down_value = self.config.servo_down_value
+        self.pyray.end_drawing()
+        while not self.servo_down_value_updated:
+            SERVO.value = self.config.servo_down_value
+            value = "%4.2f" % self.config.servo_down_value
+            self.pyray.begin_drawing()
+            self.pyray.clear_background(RAYWHITE)
+            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            self.__text_box(TEXT[MenuState.SERVO_DOWN_VALUE], 00, 0, 240, 40, 28)
+            self.__text_box(value, 10, 53, 210, 40, 28, False)
+            self.pyray.end_drawing()
+
+        self.device.pop_key_handlers()
+        self.cursor_pos = MenuState.SERVO_DOWN_VALUE
+        self.config_updated = self.config.servo_down_value != original_down_value
+        SERVO.value = None
+
+    def __enter_servo_up(self):
+        """
+        Perform action to enter servo up limit value
+        """
+        print("__enter_servo_up:")
+        self.device.push_key_handlers(self.__key_noop, self.__key_noop, self.__key_noop,
+                                      self.__joystick_enter_servo_up)
+        self.servo_up_value_updated = False
+        original_up_value = self.config.servo_up_value
+        self.pyray.end_drawing()
+        while not self.servo_up_value_updated:
+            SERVO.value = self.config.servo_up_value
+            value = "%4.2f" % self.config.servo_up_value
+            self.pyray.begin_drawing()
+            self.pyray.clear_background(RAYWHITE)
+            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            self.__text_box(TEXT[MenuState.SERVO_UP_VALUE], 00, 0, 240, 40, 28)
+            self.__text_box(value, 10, 53, 210, 40, 28, False)
+            self.pyray.end_drawing()
+
+        self.device.pop_key_handlers()
+        self.cursor_pos = MenuState.SERVO_UP_VALUE
+        self.config_updated = self.config.servo_up_value != original_up_value
+        SERVO.value = None
+
+    def __enter_track_name(self):
+        """
+        Perform action to enter track name
+        """
+        track_name = self.input.get_string()
+        if track_name and (track_name != self.config.track_name):
+            self.config.track_name = track_name
+            self.config_updated = True
+        self.__display_setting(TEXT[MenuState.TRACK_NAME], self.config.track_name)
+        self.cursor_pos = MenuState.TRACK_NAME
 
     def __joystick(self, btn):
         """
@@ -712,7 +806,7 @@ class Menu():
                 self.config_window_bottom = self.config_menu_first
             else:
                 self.cursor_pos = DOWN[self.cursor_pos]
-                if self.config_window_bottom == self.cursor_pos:
+                if self.cursor_pos == self.config_window_bottom:
                     self.config_window_top = DOWN[self.config_window_top]
                     print("  new self.config_window_top: ", self.config_window_top)
             print("  new self.cursor_pos: ", self.cursor_pos)
@@ -811,6 +905,45 @@ class Menu():
         elif btn.pin == JOYP.pin:
             self.num_lanes_selected = True
 
+    def __joystick_enter_servo_down(self, btn):
+        """
+        Joystick callback function for use when adjusting the servo down value
+        """
+        if btn.pin == JOYU.pin:
+            self.config.servo_down_value += 0.01
+        elif btn.pin == JOYD.pin:
+            self.config.servo_down_value -= 0.01
+        elif btn.pin == JOYL.pin:
+            self.config.servo_down_value -= 0.1
+        elif btn.pin == JOYR.pin:
+            self.config.servo_down_value += 0.1
+        elif btn.pin == JOYP.pin:
+            self.servo_down_value_updated = True
+
+        # Restrict value to -1.0 .. 1.0 otherwise the gpiozero.Servo class will throw an exception
+        self.config.servo_down_value = max(self.config.servo_down_value, -1.0)
+        self.config.servo_down_value = min(self.config.servo_down_value, 1.0)
+
+
+    def __joystick_enter_servo_up(self, btn):
+        """
+        Joystick callback function for use when adjusting the servo up value
+        """
+        if btn.pin == JOYU.pin:
+            self.config.servo_up_value += 0.01
+        elif btn.pin == JOYD.pin:
+            self.config.servo_up_value -= 0.01
+        elif btn.pin == JOYL.pin:
+            self.config.servo_up_value -= 0.1
+        elif btn.pin == JOYR.pin:
+            self.config.servo_up_value += 0.1
+        elif btn.pin == JOYP.pin:
+            self.servo_up_value_updated = True
+
+        # Restrict value to -1.0 .. 1.0 otherwise the gpiozero.Servo class will throw an exception
+        self.config.servo_up_value = max(self.config.servo_up_value, -1.0)
+        self.config.servo_up_value = min(self.config.servo_up_value, 1.0)
+
 
     def __text_box(self, text, x, y, width, height, size, gray=False):
         """
@@ -858,7 +991,6 @@ if __name__ == '__main__':
         main_pyray.hide_cursor()
 
         main_font = main_pyray.load_font("fonts/Roboto-Black.ttf")
-
         menu = Menu(main_pyray, main_font, main_config)
         menu.process_menus()
 
