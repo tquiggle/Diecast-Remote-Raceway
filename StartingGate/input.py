@@ -95,9 +95,9 @@ class Input():
 
     get_string() displays a grid of characters.  The joystick is used
     to move around the grid.  Pressing the joystick adds the current
-    letter/number to the text input string.
+    character to the text input string.
 
-    * Key 1: toggles between upper case, lower case and numbers/punctuatino/symbols
+    * Key 1: toggles between upper case, lower case and numbers/punctuation/symbols
     * Key 2: removes the last letter from the input string
     * Key 3: accepts the current string
 
