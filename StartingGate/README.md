@@ -20,7 +20,7 @@ The following components are printed exactly as-is from capsurfer's original des
 * starter.stl
 * thestick[\_long4].stl
 
-As they are capsurfer's unmodified designs, I have not included the STL files in the
+As they are capsurfer's unmodified designs, I have not included the STL files in this
 repository.  You will need to download those STLs from thingiverse.
 
 The following components have been modified to suit automation
@@ -131,6 +131,20 @@ schematic is shown below.
 ### Waveshare 1.3" LED HAT
 
 ![LCD HAT](../images/waveshare-lcd.png)
+
+## Software
+
+The Starting Gate consists of the following components
+
+* drr\_wrapper.py called from /etc/rc.init at boot, checks for software updates and runs starting\_gate.py as a child process.  If starting\_gate.py fails for any reason, it is restarted
+* starting\_gate.py is the executable for the starting gate. It displays the initial menu and runs races
+
+* config.py manages confiuration settings
+* coordinator.py interface to the Race Coordinator server when running multi-track races
+* deviceio.py interface to WaveShare 1.3" LCD buttons, servo and GPIO PINs for sensing cars
+* display.py manages the race display
+* input.py accepts user input via character selection from a grid
+* menu.py manages the top level menu and all configuration menues
 
 ## Raspberry Pi Setup
 
