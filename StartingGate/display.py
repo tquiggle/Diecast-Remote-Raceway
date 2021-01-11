@@ -343,6 +343,11 @@ class Display(threading.Thread):
             for car in range(self.config.remote_num_lanes):
                 self.remote_y[car] = self.y_starting_offset
 
+    def __text_box_dense(self, text, x, y, width, height, size, inverted=False):
+        self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+        self.pyray.draw_text_rec(self.font, text, [x+2, y+2, width-2, height-2], size, 2,
+                                 True, BLACK)
+
     def __text_box(self, text, x, y, width, height, size, inverted=False):
         """
         Draws a box at location (x,y) with width and height. Prints text with specified font size
@@ -431,12 +436,22 @@ class Display(threading.Thread):
         if track_count == 1:
             x_offset = 15 + (lane_number - 1)*100
             y_offset = 20 + (place)*40
+            time_y_offset = 180
+            time_width = 96
         else:
-            x_offset = 10 + (lane_number - 1)*45 + (track_number - 1)*122
+            x_offset = 10 + (lane_number - 1)*48 + (track_number - 1)*120
             y_offset = 40 + (place)*50
+            time_y_offset = 204
+            time_width = 46
 
         texture = self.fail_texture if lane_time == NOT_FINISHED else self.place_textures[place]
         self.pyray.draw_texture(texture, x_offset, y_offset, WHITE)
+
+        time = "{:.3f}".format(lane_time)
+        if track_count == 1:
+            self.__text_box(time, x_offset, time_y_offset, time_width, 30, 28)
+        else:
+            self.__text_box_dense(time, x_offset, time_y_offset, time_width, 20, 16)
 
     def __wait_menu(self):
         self.menu.process_menus()
@@ -567,7 +582,7 @@ def run_sample_race():
 
     if main_config.multi_track:
         print("main: calling wait_remote_ready")
-        main_config.remote_track_name = "Track-2"
+        main_config.remote_track_name = "Charlie"
         display.wait_remote_ready()
         time.sleep(2.0)
 
@@ -575,13 +590,13 @@ def run_sample_race():
     display.countdown()
     print("main: calling race started")
     display.race_started()
-    time.sleep(5.0)
+    time.sleep(2.0)
 
     if main_config.multi_track:
-        test_results = [{"trackName":main_config.track_name, "laneNumber":1, "laneTime":1.234},
-                        {"trackName":main_config.track_name, "laneNumber":2, "laneTime":1.540},
+        test_results = [{"trackName":main_config.track_name, "laneNumber":2, "laneTime":1.234},
                         {"trackName":main_config.remote_track_name, "laneNumber":1,
-                         "laneTime":2.087},
+                         "laneTime":1.541},
+                        {"trackName":main_config.track_name, "laneNumber":1, "laneTime":2.130},
                         {"trackName":main_config.remote_track_name, "laneNumber":2,
                          "laneTime":NOT_FINISHED}]
         display.race_finished(test_results)
