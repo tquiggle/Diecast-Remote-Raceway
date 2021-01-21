@@ -25,6 +25,7 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 
 
 import bluetooth
+import deviceio
 import json
 import operator
 import select
@@ -33,7 +34,7 @@ import traceback
 
 from config import Config, NOT_FINISHED
 from coordinator import Coordinator
-from deviceio import SERVO, LANE1, LANE2, LANE3, LANE4
+from deviceio import DeviceIO, SERVO, LANE1, LANE2, LANE3, LANE4
 from display import Display, NOT_FINISHED
 
 # Globals (yea, I know)
@@ -50,8 +51,9 @@ def key_pressed():
     Sets global race_aborted state to exit the current race at the earliest
     convenience and return to the top level menu.
     """
+    print("key_pressed(): Setting race_aborted to True")
     global race_aborted
-    race_aborted = 1
+    race_aborted = True
 
 #TODO: Make this async and kick it off as early as possible.
 def connect_to_finish_line(target_name):
@@ -95,6 +97,8 @@ def connect_to_finish_line(target_name):
 def reset_starting_gate(config):
     """ Set servo to midpoint position to close the starting gate """
     SERVO.value = config.servo_up_value
+    time.sleep(0.1)
+    SERVO.value = None  # Stop PWM signal to servo to prevent humm/jitter and reduce wear
 
 def release_starting_gate(config):
     """ Set servo to max position to release the starting gate """
@@ -299,6 +303,7 @@ def main():
 
     config = Config("/home/pi/config/starting_gate.json")
     display = Display(config)
+    device = DeviceIO()
     coordinator = Coordinator(config)
     socket = None
     global finish_line_connected
@@ -317,6 +322,9 @@ def main():
 
         # Display the main menu and wait for race selection
         display.wait_menu()
+
+        device.push_key_handlers(key_pressed, key_pressed, key_pressed,
+                                 deviceio.default_joystick_handler)
 
         # Establish Bluetooth connection to Finish Line
         if not finish_line_connected:
@@ -339,6 +347,8 @@ def main():
             except Exception as exc:
                 print("Unexpected exception caught", exc)
                 traceback.print_exc()
+
+        device.pop_key_handlers()
 
 
 if __name__ == '__main__':
