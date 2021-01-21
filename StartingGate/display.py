@@ -187,7 +187,6 @@ class Display(threading.Thread):
             y_starting_offset = 10
 
         # Load the background image
-        #background_image = self.pyray.load_image("images/background.png")
         background_image = self.pyray.load_image("images/raceoff-2.png")
         self.background_texture = self.pyray.load_texture_from_image(background_image)
         self.pyray.unload_image(background_image)
@@ -195,7 +194,7 @@ class Display(threading.Thread):
 
         checkerboard_image = self.pyray.load_image(
             "images/checkerboard-{}.png".format(checkerboard_size))
-        question_image = self.pyray.load_image("images/question-{}.png".format(car_icon_size))
+        question_image = self.pyray.load_image("cars/question-{}.png".format(car_icon_size))
 
         first_image = self.pyray.load_image("images/1st-{}.png".format(banner_size))
         second_image = self.pyray.load_image("images/2nd-{}.png".format(banner_size))
