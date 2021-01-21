@@ -56,22 +56,28 @@ def check_for_updates():
     current_version = read_local_version()
     latest_version = fetch_latest_version()
 
+    print("current_version=", current_version)
+    print("latest_version=", latest_version)
+
     if current_version < latest_version:
         release_file = "starting-gate-{}.tgz".format(latest_version)
         release_url = "http://{}:{}/DRR/SG/{}".format(DRR_CONFIG.coord_host,
                                                       DRR_CONFIG.coord_port,
                                                       release_file)
+        release_dest = "releases/{}".format(release_file)
+
         print("fetching: ", release_url)
-        urllib.request.urlretrieve(release_url, release_file)
-        if not os.path.exists(release_file):
-            print("Error fetching", release_url, " to ", release_file)
+        urllib.request.urlretrieve(release_url, release_dest)
+        if not os.path.exists(release_dest):
+            print("Error fetching", release_url, " to ", release_dest)
             return
 
-        return_status = os.system("tar xzf {}".format(release_file))
+        print("expanding: ", release_dest)
+        return_status = os.system("tar xzf {}".format(release_dest))
         # needs Python 3.9:  code = os.waitstatus_to_exitcode(return_status)
         code = os.WEXITSTATUS(return_status)
         if code != 0:
-            print("Error extracting", release_file)
+            print("Error extracting", release_dest)
 
 def run_starting_gate():
     """
