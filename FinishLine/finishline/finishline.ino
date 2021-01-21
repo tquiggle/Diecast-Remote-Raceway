@@ -39,7 +39,7 @@ full license information.
 #include <SPIFFS.h>
 
 // Hard coded config
-const char* FW_VERSION = "20120501";
+const char* FW_VERSION = "21012000";
                        // YYMMDDVV Last two digits of Year, Month, Day, Version
 const char* fwVersionURLtemplate = "http://%s:%d/DRR/FL/version.txt";
 const char* fwURLtemplate = "http://%s:%d/DRR/FL/finish-line-%0d.bin";
@@ -53,6 +53,7 @@ const char* configFilename = "/config.json";
 #define DEFAULT_CONTROLLER_HOSTNAME "<CONTROLLER_HOST>"
 #define DEFAULT_CONTROLLER_PORT 1968
 #define MAX_CONFIG_SIZE 256
+#define MAX_LANES 4
 
 // Configuration stored in config.json
 String wifiSSID(DEFAULT_WIFI_SSID);
@@ -67,7 +68,6 @@ const int LANE2_PIN = 17;
 const int LANE3_PIN = 18;
 const int LANE4_PIN = 19;
 
-const int numLanes = 4;
 enum Lanes {
   LANE1 = 0,  // Lanes is used as an array index
   LANE2,
@@ -89,9 +89,9 @@ enum Commands {
 };
 
 #define DEBOUNCE_MILLIS 100
-unsigned long lastFinish[numLanes] = {0, 0, 0, 0};
+unsigned long lastFinish[MAX_LANES] = {0, 0, 0, 0};
 const int finishMessageLength = 4;
-const uint8_t* finishMessages[numLanes] = {
+const uint8_t* finishMessages[MAX_LANES] = {
   (uint8_t*)"FIN1",
   (uint8_t*)"FIN2",
   (uint8_t*)"FIN3",
@@ -449,6 +449,10 @@ bool debounce(Lanes lane) {
 }
 
 void setup() {
+  /*
+   * Unlike the starting gate, there is no need to configure the number of connected lanes.
+   * By pulling up all four of the pins, disconnected lanes will just never report state change.
+   */
   Serial.begin(115200);
   readConfig(configFilename);
   checkForUpdates();
