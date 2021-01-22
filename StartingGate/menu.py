@@ -554,6 +554,8 @@ class Menu():
         for car_filename in car_icon_filenames:
             print("Load car image", car_filename)
             icon_name = car_filename[5:-7]
+            if icon_name == "question":
+                continue
             car_image = self.pyray.load_image(car_filename)
             car_texture = self.pyray.load_texture_from_image(car_image)
             self.car_textures.append((icon_name, car_texture))
