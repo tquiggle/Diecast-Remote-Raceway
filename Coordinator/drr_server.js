@@ -7,7 +7,7 @@
  * Linux Installation:
  *
  *    % sudo apt install nodejs
- *    % npm install express async-barrier node-cron --save
+ *    % npm install express async-barrier node-cron log-timestamp --save
  *
  * The DRR_Server implements the following service endpoints
  *
@@ -41,6 +41,7 @@
  */
 
 /* Imports */
+require('log-timestamp')
 const express = require('express')
 const bodyParser = require('body-parser')
 const os = require('os')
@@ -95,6 +96,7 @@ function deregister(ip) {
         const index = circuits[circuit].participants.indexOf(ip)
         if (index > -1) {
             circuits[circuit].participants.splice(index, 1)
+            //circuits[circuit].participants.delete(ip)
             circuits[circuit].numParticipants--
             circuits[circuit].results = []
             circuits[circuit].startBarrier = makeAsyncBarrier(circuits[circuit].numParticipants)
