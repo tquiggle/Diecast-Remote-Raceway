@@ -24,17 +24,18 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 """
 
 
-import bluetooth
-import deviceio
 import json
 import operator
 import select
 import time
 import traceback
+import bluetooth
+
+import deviceio
+from deviceio import DeviceIO, SERVO, LANE1, LANE2, LANE3, LANE4
 
 from config import Config, NOT_FINISHED
 from coordinator import Coordinator
-from deviceio import DeviceIO, SERVO, LANE1, LANE2, LANE3, LANE4
 from display import Display, NOT_FINISHED
 
 # Globals (yea, I know)
@@ -52,7 +53,7 @@ def key_pressed():
     convenience and return to the top level menu.
     """
     print("key_pressed(): Setting race_aborted to True")
-    global race_aborted
+    global race_aborted #pylint: disable=global-statement
     race_aborted = True
 
 #TODO: Make this async and kick it off as early as possible.
@@ -71,7 +72,7 @@ def connect_to_finish_line(target_name):
     port = 1
     socket = None
     target_address = None
-    global finish_line_connected
+    global finish_line_connected #pylint: disable=global-statement
 
     print("Attempting Bluetooth connection to ", target_name)
 
@@ -102,12 +103,11 @@ def reset_starting_gate(config):
 
 def release_starting_gate(config):
     """ Set servo to max position to release the starting gate """
-    SERVO.value =  config.servo_down_value
+    SERVO.value = config.servo_down_value
 
 def all_lanes_empty(config):
     """ Scan the lane sensors to see if any lanes have cars present. """
     num_lanes = config.num_lanes
-    sum = 0
 
     if num_lanes == 1:
         return LANE1.value == 0
@@ -117,8 +117,6 @@ def all_lanes_empty(config):
         return LANE1.value + LANE2.value + LANE3.value == 0
     if num_lanes == 4:
         return LANE1.value + LANE2.value + LANE3.value + LANE4.value == 0
-        
-    return sum == 0
 
 
 def all_lanes_ready(config):
@@ -162,19 +160,18 @@ def purge_bluetooth_messages(socket):
             # Re raise any other bluetooth exception so the main loop will reconnect
             print("purge_bluetooth_messages(): BluetoothError, other reason =", exc.args)
             raise exc
-    except Exception as exc:
-        print("purge_bluetooth_messages: unexcpected exception: ", exc)
     socket.settimeout(prior_timeout)
 
-
-def run_race(config, coordinator, display, socket):
+def run_race(config, coordinator, display, socket, poller):
     """
     Run a race
 
     Args:
-        config  Config object with current race configuration
-        display Display object to manage display of race state
-        socket  Bluetooth connection to Finish Line
+        config      Config object with current race configuration
+        coordinator Coordinator object for communicating
+        display     Display object to manage display of race state
+        socket      Bluetooth connection to Finish Line
+        poller      Polling object bound to socket to test for READ ready
     """
 
     num_lanes = config.num_lanes
@@ -234,8 +231,6 @@ def run_race(config, coordinator, display, socket):
     display.countdown()
 
     purge_bluetooth_messages(socket)
-    poller = select.poll()
-    poller.register(socket, READ_ONLY)
 
     print("Start the race!")
     release_starting_gate(config)
@@ -281,15 +276,15 @@ def run_race(config, coordinator, display, socket):
         result["laneTime"] = finish_times[lane]
         results.append(result)
 
-    results.sort(key = operator.itemgetter('laneTime'))
+    results.sort(key=operator.itemgetter('laneTime'))
 
     # Send local results to race coordinator and await global results
     if config.multi_track:
         results_string = coordinator.results(results)
-        results_json = json.loads(results_string)
+        results = json.loads(results_string)
 
     reset_starting_gate(config)
-    display.race_finished(results_json)
+    display.race_finished(results)
 
     # Placing a car on a lane terminates the results display and exits the race
 
@@ -306,7 +301,8 @@ def main():
     device = DeviceIO()
     coordinator = Coordinator(config)
     socket = None
-    global finish_line_connected
+    poller = None
+    global finish_line_connected #pylint: disable=global-statement
 
     reset_starting_gate(config)
 
@@ -314,7 +310,7 @@ def main():
     while True:
 
         # Reset aborted state
-        global race_aborted
+        global race_aborted #pylint: disable=global-statement
         race_aborted = False
 
         # De-register with race coordinator.
@@ -330,6 +326,8 @@ def main():
         if not finish_line_connected:
             display.wait_finish_line()
             socket = connect_to_finish_line(config.finish_line_name)
+            poller = select.poll()
+            poller.register(socket, READ_ONLY)
 
         # Register with the race coordinator if multi-track race selected in menu
         if config.multi_track:
@@ -339,14 +337,15 @@ def main():
 
         while not race_aborted:
             try:
-                run_race(config, coordinator, display, socket)
+                run_race(config, coordinator, display, socket, poller)
             except bluetooth.btcommon.BluetoothError:
                 print("Bluetooth exception caught.  Reconnecting...")
                 finish_line_connected = False
                 socket = connect_to_finish_line("FinishLine")
-            except Exception as exc:
+            except Exception as exc: #pylint: disable=broad-except
                 print("Unexpected exception caught", exc)
                 traceback.print_exc()
+                break # Go back to main menu on unhandled exception within a race
 
         device.pop_key_handlers()
 
