@@ -342,7 +342,7 @@ class Display(threading.Thread):
             for car in range(self.config.remote_num_lanes):
                 self.remote_y[car] = self.y_starting_offset
 
-    def __text_box_dense(self, text, x, y, width, height, size, inverted=False):
+    def __text_box_dense(self, text, x, y, width, height, size):
         self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
         self.pyray.draw_text_rec(self.font, text, [x+2, y+2, width-2, height-2], size, 2,
                                  True, BLACK)
@@ -446,11 +446,14 @@ class Display(threading.Thread):
         texture = self.fail_texture if lane_time == NOT_FINISHED else self.place_textures[place]
         self.pyray.draw_texture(texture, x_offset, y_offset, WHITE)
 
-        time = "{:.3f}".format(lane_time)
-        if track_count == 1:
-            self.__text_box(time, x_offset, time_y_offset, time_width, 30, 28)
+        if lane_time == NOT_FINISHED:
+            display_time = "FAIL"
         else:
-            self.__text_box_dense(time, x_offset, time_y_offset, time_width, 20, 16)
+            display_time = "{:.3f}".format(lane_time)
+        if track_count == 1:
+            self.__text_box(display_time, x_offset, time_y_offset, time_width, 30, 28)
+        else:
+            self.__text_box_dense(display_time, x_offset, time_y_offset, time_width, 20, 16)
 
     def __wait_menu(self):
         self.menu.process_menus()
