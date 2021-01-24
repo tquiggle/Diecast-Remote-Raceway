@@ -566,8 +566,11 @@ class Menu():
         """
         Perform action to enter a car icon
         """
+        self.car_icon_selected = False
+
         if not self.car_icons_loaded:
             self.__load_car_textures()
+
         self.device.push_key_handlers(self.__key_noop, self.__key_noop, self.__key_noop,
                                       self.__joystick_enter_car_icon)
 
@@ -588,22 +591,18 @@ class Menu():
         self.cursor_pos = MenuState.CAR_ICONS
 
     def __select_car_1_icon(self):
-        self.car_icon_selected = False
         self.__enter_car_icon(0)
         self.cursor_pos = MenuState.CAR_1_ICON
 
     def __select_car_2_icon(self):
-        self.car_icon_selected = False
         self.__enter_car_icon(1)
         self.cursor_pos = MenuState.CAR_2_ICON
 
     def __select_car_3_icon(self):
-        self.car_icon_selected = False
         self.__enter_car_icon(2)
         self.cursor_pos = MenuState.CAR_3_ICON
 
     def __select_car_4_icon(self):
-        self.car_icon_selected = False
         self.__enter_car_icon(3)
         self.cursor_pos = MenuState.CAR_4_ICON
 
@@ -794,10 +793,8 @@ class Menu():
         print("menu: btn.pin: ", btn.pin, "self.cursor_pos: ", self.cursor_pos)
         if btn.pin == JOYU.pin:
             if self.config_window_top == self.cursor_pos:
-                self.config_window_top = UP[self.config_window_top]
-                self.config_window_top = UP[self.config_window_top]
-                self.config_window_top = UP[self.config_window_top]
-                self.config_window_top = UP[self.config_window_top]
+                for index in range(4): #pylint: disable=unused-variable
+                    self.config_window_top = UP[self.config_window_top]
                 print("  new self.config_window_top: ", self.config_window_top)
             self.cursor_pos = UP[self.cursor_pos]
             print("  new self.cursor_pos: ", self.cursor_pos)
@@ -810,7 +807,6 @@ class Menu():
                 self.cursor_pos = DOWN[self.cursor_pos]
                 if self.cursor_pos == self.config_window_bottom:
                     self.config_window_top = DOWN[self.config_window_top]
-                    print("  new self.config_window_top: ", self.config_window_top)
             print("  new self.cursor_pos: ", self.cursor_pos)
         elif btn.pin == JOYL.pin:
             self.cursor_pos = LEFT[self.cursor_pos]
@@ -868,7 +864,6 @@ class Menu():
         Joystick callback function for use in the ENTER_RACE_TIMEOUT
         """
         if btn.pin == JOYU.pin:
-            # Consider aborting the current icon selection on up joystick
             pass
         elif btn.pin == JOYD.pin:
             pass
@@ -890,7 +885,6 @@ class Menu():
         Joystick callback function for use in the ENTER_NUM_LANES state
         """
         if btn.pin == JOYU.pin:
-            # Consider aborting the current icon selection on up joystick
             pass
         elif btn.pin == JOYD.pin:
             pass
@@ -955,10 +949,9 @@ class Menu():
         """
         if gray:
             self.pyray.draw_rectangle_rec([x, y, width, height], LIGHTGRAY)
-            self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
         else:
             self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-            self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+        self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
         self.pyray.draw_text_rec(self.font, text, [x+10, y+5, width-10, height-5],
                                  size, 5.0, True, BLACK)
 
