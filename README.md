@@ -30,14 +30,69 @@ following is displayed:
 
 ![Connecting](images/Connecting.png)
 
-Once connected to the Finish Line, the Starting Gate awaits cars in each starting gate.
+### Multi-Track Race
+
+In a multi-track race was selected, the Starting Gate contacts the race controller to await
+another participating track.  The following is displayed:
+
+![Wait Remote Track](images/Wait-Remote-Track.png)
+
+Upon return, the name of the remote track is displayed
+and the Starting Gate awaits cars in each starting gate.
+
+![Waiting Cars 2](images/Waiting-Cars-2-Empty.png)
+
+When a lane's sensor detects that a car has been placed in a lane, the "no
+car" icon is replaced with the user's selected icon for that lane:
+
+![Waiting Cars 2](images/Waiting-Cars-2.png)
+
+Once cars are present in all lanes of the local track the Starting Gate
+contacts the race coordinator to signal that the track is ready to race and wait until the
+remote track is also ready:
+
+![Waiting on Other Track](images/Waiting-Other.png)
+
+Once both tracks are ready, there is a 3 second countdown and the
+race begins.  The elapsed time is displayed as the race progresses,
+and the icons travel down the image of the track.
+
+![Racing](images/Racing.png)
+
+Finally, when all cars have finished (or the configured timeout is reached) the results of the
+race are displayed:
+
+![Results](images/Results.png)
+
+and the starting gate barrier is raised to accept cars again.
+
+To start next race, simply placing cars in the gates.  When the first car is placed, the
+display clears the race results and goes back to the "Waiting for cars" state and the next race
+proceeds.
+
+### Single-Track Race
+
+A Single Track race proceedes much like a Mulit Track but without the coordination with the
+second track.  As soon as the connection to the Finish Line is established, the Starting Gate
+waits for cars on the local track.
 
 ![Waiting for Cars](images/Waiting-for-Cars.png)
 
 When a lane's sensor detects that a car has been placed in a lane, the "no
-car" icon is replaced with the user's selected icon for that lane.
+car" icon is replaced with the user's selected icon for that lane:
 
-WORK IN PROGRESS
+![Waiting with 1 Car](images/Waiting-Cars-1.png)
 
-Complete race instructions about car placement, how the starting gate resets at the
-completion of a race.  Start next race simply by placing cars in the gates, etc.
+Once all cars are present, there is a 3 second countdown and the race begins.
+
+![Racing 1 Track](images/Racing-1-Track.png)
+
+When the race completes, the results are displayed:
+
+![Racing 1 Track](images/Results-1-Track.png)
+
+and the starting gate barrier is raised to accept cars again.
+
+To start next race, simply placing cars in the gates.  When the first car is placed, the
+display clears the race results and goes back to the "Waiting for cars" state and the next race
+proceeds.
