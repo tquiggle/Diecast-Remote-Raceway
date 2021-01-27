@@ -45,6 +45,11 @@ member, non Prime members may incur additional shipping costs."
 | Item | # | Each | Total | Vendor |
 | :--- | :---     | ---: | ---:  | :---   |
 | **Starting Gates** | |  |  |  |
+| Raspberry Pi Zero W[H] | 2 | $14.95 | $29.90 | https://www.pishop.us/product/raspberry-pi-zero-wireless-wh-pre-soldered-header/ |
+| 1.3" LCD Display Hat - 2 pack | 1 | 23.79  | 23.79  | https://www.ebay.com/i/264844157433 |
+| Zero Prototyping pHAT | 2 | $6.95 | $13.90 | https://www.pishop.us/product/zero-prototyping-phat-zero/ |
+| TCRT5000  IR Reflective Sensor Modules | 8 | (8 @ $0.40 + $2.61 shipping) | $5.81 | https://www.aliexpress.com/item/1005001841063508.html |
+| MG90S Servo | 2 | (2 @ 1.39  2.47 shipping) | $5.52 | https://www.aliexpress.com/item/1005002071884212.html |
 | **Finish Lines** | |  |  |  |
-| **Assembly** | |  |  |  |
-| **Tools and Wiring** | | | |
+| ESP32 ESP-32S Development Board  | 2 | (2 for 9.69) | $9.69 | https://www.aliexpress.com/item/32864722159.html |
+| 4-Channel IR Line Tracking Sensor Module | 2 | | $2.94 | https://www.aliexpress.com/item/33007862609.html |
