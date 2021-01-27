@@ -7,7 +7,7 @@
  * Linux Installation:
  *
  *    % sudo apt install nodejs
- *    % npm install express async-barrier node-cron log-timestamp --save
+ *    % npm install express async-barrier node-cron log-timestamp connect-timeout --save
  *
  * The DRR_Server implements the following service endpoints
  *
@@ -58,11 +58,15 @@ const defaultCircuit = 'DRR'
 const releases_root = '/home/htdocs/DRR'
 
 var server = express() // Server object provided by the Express framework: https://expressjs.com/
+var timeout = require('connect-timeout')
 var ipToCircuit = {} // Map of client IP address to registered circuit
 var circuits = {} // Map of all active circuits
 
 server.use(bodyParser.json())
 server.use('/DRR', express.static(releases_root))
+server.use(timeout(86400*1000))  // One day timeout
+
+server.timeout = 86400*1000
 
 /* The following state is maintained for each circuit */
 circuits[defaultCircuit] = {}
@@ -73,7 +77,7 @@ circuits[defaultCircuit].startBarrier = null
 circuits[defaultCircuit].resultsBarrier = null
 circuits[defaultCircuit].registerBarrier = null
 
-/* Schedule a periodic task to run every minute looking for lost/disconnected tracks */
+/* Schedule a periodic task to run every minute looking for lost/disconnected tracks 
 cron.schedule('* * * * *', function() {
     now = Date.now()
     for (circuit in circuits) {
@@ -85,6 +89,7 @@ cron.schedule('* * * * *', function() {
         }
     }
 })
+*/
 
 /*
  * Remove regitration for ip
@@ -213,6 +218,7 @@ function sendErrorResponse(res, code, text) {
 
 server.post('/register', async function(req, res) {
     const ip = req.connection.remoteAddress
+    req.setTimeout(86400*100)
     let registration
 
     console.log(`/register(${ip}):`)
@@ -220,7 +226,9 @@ server.post('/register', async function(req, res) {
 
     let circuit = register(ip, req.body)
 
+    console.log('/register, waiting on barrier')
     await circuits[circuit].registrationBarrier()
+    console.log('/register, back from wait on barrier')
 
     let results = {}
     results.ip = ip
