@@ -33,8 +33,11 @@ def fetch_latest_version():
     version_url = "http://{}:{}/DRR/SG/version.txt".format(DRR_CONFIG.coord_host,
                                                            DRR_CONFIG.coord_port)
     print("Fetching latest version number from ", version_url)
-    response = requests.get(version_url)
-    return response.text.rstrip()
+    try:
+        response = requests.get(version_url)
+        return response.text.rstrip()
+    except:
+        return -1
 
 
 def read_local_version():
