@@ -572,11 +572,13 @@ def run_sample_race():
     if main_config.multi_track:
         print("main: calling wait_remote_registration")
         display.wait_remote_registration()
-        time.sleep(1.0)
+        time.sleep(2.0)
+        main_config.remote_track_name = "Charlie"
         main_config.remote_num_lanes = 2
         main_config.remote_car_icons = ["white-sl", "mclaren-f1"]
         print("main: calling remote_registration_done")
         display.remote_registration_done()
+        time.sleep(2)
 
     print("main: calling wait_local_ready")
     display.wait_local_ready()
@@ -584,7 +586,6 @@ def run_sample_race():
 
     if main_config.multi_track:
         print("main: calling wait_remote_ready")
-        main_config.remote_track_name = "Charlie"
         display.wait_remote_ready()
         time.sleep(2.0)
 
