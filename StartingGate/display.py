@@ -490,11 +490,11 @@ class Display(threading.Thread):
     def __wait_local_ready(self):
         texture1 = self.local_textures[0] if car_1_present() else self.question_texture
         texture2 = self.local_textures[1] if car_2_present() else self.question_texture
-        self.__text_message("Waiting for: Cars")
         if self.config.multi_track:
             self.__draw_cars(texture1, texture2, self.question_texture, self.question_texture)
         else:
             self.__draw_cars(texture1, texture2, self.question_texture, self.question_texture)
+        self.__text_message("Waiting for: Cars")
 
     def __wait_remote_ready(self):
         wait_msg = "Waiting for: " + self.config.remote_track_name
