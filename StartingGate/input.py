@@ -133,8 +133,6 @@ class Input():
 
         self.device.push_key_handlers(self.__key1, self.__key2, self.__key3, self.__joystick)
 
-        print("STATIC_CONSTANT=", Input.STATIC_CONSTANT)
-
         while not self.input_complete:
             display_string = ""
 
@@ -174,8 +172,6 @@ class Input():
         return self.string
 
 # PRIVATE
-
-    STATIC_CONSTANT = "static constant"
 
     def __init__(self, pyray, font):
 
