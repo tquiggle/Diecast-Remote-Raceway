@@ -174,7 +174,9 @@ class Config:
             if config == CAR_ICONS:
                 config_icons = getattr(self, CAR_ICONS)
                 default_icons = Config.DEFAULT[CAR_ICONS]
-                # If any car icon has been modified from the defaults, just
+                # If any car icon has been modified from the defaults, just write out the
+                # entire icons array.  Don't bother joining defaults against user selections
+                # when reading.
                 for idx, icon in enumerate(config_icons):
                     print("comparing {} to default_icons[{}] = {}".format(icon, idx,
                                                                           default_icons[idx]))
