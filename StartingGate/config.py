@@ -4,7 +4,7 @@
 
 Diecast Remote Raceway - config
 
-There are two types of configiguration parameters, persisted and ephemeral.
+There are two types of configuration parameters, persisted and ephemeral.
 
     * Persisted: configuration parameters that are preserved from one execution to
       another. Examples are the WiFi SSID and password and number of lanes.
@@ -39,7 +39,7 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 import json
 import sys
 
-# Sentinal value indicating that a car did not complete the race within the timeout period.
+# Sentinel value indicating that a car did not complete the race within the timeout period.
 # If the finish time for a lane is NOT_FINISHED, display the failure icon for that lane.
 NOT_FINISHED = sys.float_info.max
 
@@ -195,34 +195,23 @@ class Config:
             print("saving local_config")
             config_string = json.dumps(local_config, sort_keys=True, indent=4,
                                        separators=(',', ': '))
-            filehandle = open(self.__filename, 'w')
-            filehandle.write(config_string)
-            filehandle.close()
+            with open(self.__filename, 'w') as filehandle:
+                filehandle.write(config_string)
+                filehandle.close()
 
 
+def main():
+    """
+    At some point I should write legitimate unit tests.  But for now, I just exercise
+    some basic functionality if the class is invoked as the Python main.
+    """
+    main_config = Config("config/starting_gate.json")
+
+    print("main_config.num_lanes=", main_config.num_lanes)
+    print("main_config.race_timeout=", main_config.race_timeout)
+    print("main_config.remote_track_name=", main_config.remote_track_name)
 
 if __name__ == '__main__':
-
-    def do_main():
-        #pylint: disable=attribute-defined-outside-init, no-member
-        """
-        At some point I should write legitimate unit tests.  But for now, I just exercise
-        some basic functionality if the class is invoked as the Python main.
-        """
-
-        main_config = Config("config/starting_gate.json")
-
-        print("main_config.num_lanes=", main_config.num_lanes)
-        print("main_config.race_timeout=", main_config.race_timeout)
-        main_config.race_timeout = 1.75
-        main_config.track_name = "My Track"
-        print("main_config.race_timeout=", main_config.race_timeout)
-
-        main_config.remote_track_name = "other track"
-        print("main_config.remote_track_name=", main_config.remote_track_name)
-
-        main_config.save()
-
-    do_main()
+    main()
 
 # vim: expandtab sw=4
