@@ -4,7 +4,7 @@
 
 Diecast Remote Raceway - config
 
-There are two types of configiguration parameters, persisted and dynamic.
+There are two types of configiguration parameters, persisted and ephemeral.
 
     * Persisted: configuration parameters that are preserved from one execution to
       another. Examples are the WiFi SSID and password and number of lanes.
