@@ -19,8 +19,8 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 """
 
 import os
+import subprocess
 import urllib.request
-import requests
 
 from config import Config
 
@@ -34,9 +34,11 @@ def fetch_latest_version():
                                                            DRR_CONFIG.coord_port)
     print("Fetching latest version number from ", version_url)
     try:
-        response = requests.get(version_url)
-        return response.text.rstrip()
+        with urllib.request.urlopen(version_url) as response:
+            version = response.read().decode("utf-8").rstrip()
+            return version
     except:
+        print("Unable to fetch latest version number. Returning -1")
         return "-1"
 
 
@@ -44,12 +46,13 @@ def read_local_version():
     """
     Extracts the version number of the currently installed release from the local version.txt
     """
+    print("Reading local version from version.txt")
     if os.path.exists("version.txt"):
         version_file = open("version.txt")
         version = version_file.readline()
         return version.rstrip()
     else:
-        print("no local version file exists!")
+        print("no local version file exists. Returning -1")
         return "-1"
 
 def check_for_updates():
@@ -63,6 +66,9 @@ def check_for_updates():
     print("latest_version=", latest_version)
 
     if current_version < latest_version:
+        if not os.path.isdir("releases"):
+            os.mkdir("releases")
+
         release_file = "starting-gate-{}.tgz".format(latest_version)
         release_url = "http://{}:{}/DRR/SG/{}".format(DRR_CONFIG.coord_host,
                                                       DRR_CONFIG.coord_port,
@@ -76,24 +82,16 @@ def check_for_updates():
             return
 
         print("expanding: ", release_dest)
-        return_status = os.system("tar xzf {}".format(release_dest))
-        # needs Python 3.9:  code = os.waitstatus_to_exitcode(return_status)
-        code = os.WEXITSTATUS(return_status)
-        if code != 0:
+        result = subprocess.run(["tar", "xzf", "{}".format(release_dest)])
+        if result.returncode != 0:
             print("Error extracting", release_dest)
 
 def run_starting_gate():
     """
     Execute the Starting Gate program and wait for it to complete
     """
-    pid = os.fork()
-    if pid > 0:
-        print("In parent, child pid = ", pid)
-        pid, status = os.waitpid(pid, 0)
-        print("os.waitpid returned status", status >> 8)
-    else:
-        print("In child pid = {} ".format(os.getpid()))
-        os.execlp("/home/pi/starting_gate.py", "0", "0")
+    result = subprocess.run(["/home/pi/starting_gate.py"], check=False)
+    print ("process returned = ", result.returncode)
 
 while True:
     check_for_updates()
