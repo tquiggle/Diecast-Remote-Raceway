@@ -35,7 +35,6 @@ from config import CAR0, CAR1, CAR2, CAR3, Config, NOT_FINISHED #pylint: disable
 from deviceio import car_1_present, car_2_present
 from menu import Menu
 
-
 @enum.unique
 class RaceState(enum.Enum):
     """
@@ -164,7 +163,7 @@ class Display(threading.Thread):
 # PRIVATE
 
     # Maximum distance a car can travel in the race display
-    MAX_Y = 150
+    _MAX_Y = 150
 
     __instance = None
 
@@ -369,10 +368,9 @@ class Display(threading.Thread):
         length = len(text)
         if length <= 14:
             return 34
-        elif length < 30:
+        if length < 30:
             return 26
-        else:
-            return 24
+        return 24
 
     def __text_message(self, text, inverted=False):
         if len(text) >= 16:
@@ -525,10 +523,10 @@ class Display(threading.Thread):
                          self.remote_textures[1])
         self.__text_box(delta_bytes, 26, 95, 180, 55, 50)
         for car in range(self.config.num_lanes):
-            if random.random() < self.progress_threshold and self.local_y[car] < Display.MAX_Y:
+            if random.random() < self.progress_threshold and self.local_y[car] < Display._MAX_Y:
                 self.local_y[car] += 1
         for car in range(self.config.remote_num_lanes):
-            if random.random() < self.progress_threshold and self.remote_y[car] < Display.MAX_Y:
+            if random.random() < self.progress_threshold and self.remote_y[car] < Display._MAX_Y:
                 self.remote_y[car] += 1
 
     def __race_finished(self):
@@ -551,8 +549,6 @@ class Display(threading.Thread):
 
     def __race_timeout(self):
         self.__text_message("Race Timed Out")
-
-
 
 def run_sample_race():
     """
