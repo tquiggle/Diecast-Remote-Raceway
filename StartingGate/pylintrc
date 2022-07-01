@@ -1,10 +1,13 @@
+
 [TYPECHECK]
-ignore-classes=raylib.pyray.PyRay,Config
 generated-members=raylib.pyray.PyRay.*,Config.*
+ignored-classes=Config
 good-names=x,y
 
 [MESSAGES CONTROL]
 disable=too-few-public-methods,
         too-many-instance-attributes,
         too-many-locals,
-        too-many-arguments
+        too-many-arguments,
+        unspecified-encoding,
+        consider-using-f-string
