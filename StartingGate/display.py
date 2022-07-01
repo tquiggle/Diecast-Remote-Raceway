@@ -313,11 +313,11 @@ class Display(threading.Thread):
 
         Note, all pyray interactions must be done in this thread as it creates the GL context!
         """
-        self.pyray.init_window(240, 240, b"Diecast Remote Raceway")
+        self.pyray.init_window(240, 240, "Diecast Remote Raceway")
         self.pyray.set_target_fps(30)
         self.pyray.hide_cursor()
 
-        self.font = self.pyray.load_font(b"fonts/Roboto-Black.ttf")
+        self.font = self.pyray.load_font("fonts/Roboto-Black.ttf")
         self.menu = Menu(self.pyray, self.font, self.config)
 
         while self.running and not self.pyray.window_should_close():
