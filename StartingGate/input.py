@@ -85,7 +85,7 @@ MODE_UPPER = 1
 MODE_LOWER = 2
 MODE_SPECIAL = 3
 
-class Input():
+class Input:
 
     """
     Input():
@@ -153,16 +153,13 @@ class Input():
                 for pos in range(0, len(UPPER)):
                     self.__character_position(UPPER[pos], pos)
                 self.__character_box("SPACE", 80, 200, 160, 40, 28, self.cursor_pos > 25)
-
             elif self.mode == MODE_LOWER:
                 for pos in range(0, len(LOWER)):
                     self.__character_position(LOWER[pos], pos)
                 self.__character_box("space", 80, 200, 160, 40, 28, self.cursor_pos > 25)
-
             elif self.mode == MODE_SPECIAL:
                 for pos in range(0, len(SPECIAL)):
                     self.__character_position(SPECIAL[pos], pos)
-
             else:
                 print("INVALID MODE!")
 
@@ -287,29 +284,25 @@ class Input():
                                      28, 10.0, True, BLACK)
         self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
 
+def main():
+    """
+    When run as main program, create Menu object and run main function
+    """
+    pyray = PyRay()
+    pyray.init_window(240, 240, "Menu Test")
+    pyray.set_target_fps(30)
+    pyray.hide_cursor()
+
+    font = pyray.load_font("fonts/Roboto-Black.ttf")
+    inp = Input(pyray, font)
+
+    while True:
+        string = inp.get_string()
+        print("User input '", string, "'")
+        if string == "done":
+            break
 
 if __name__ == '__main__':
-
-    def do_main():
-        """
-        When run as main program, create Menu object and run main function
-        """
-        pyray = PyRay()
-
-        pyray.init_window(240, 240, "Menu Test")
-        pyray.set_target_fps(30)
-        pyray.hide_cursor()
-
-        font = pyray.load_font("fonts/Roboto-Black.ttf")
-
-        inp = Input(pyray, font)
-
-        while True:
-            string = inp.get_string()
-            print("User input '", string, "'")
-            if string == "done":
-                break
-
-    do_main()
+    main()
 
 # vim: expandtab sw=4
