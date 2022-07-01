@@ -23,13 +23,12 @@ Copyright (c) Thomas Quiggle. All rights reserved.
 Licensed under the MIT license. See LICENSE file in the project root for full license information.
 """
 
-
+import bluetooth
 import json
 import operator
 import select
 import time
 import traceback
-import bluetooth
 
 import deviceio
 from deviceio import DeviceIO, SERVO, LANE1, LANE2, LANE3, LANE4
@@ -174,6 +173,7 @@ def run_race(config, coordinator, display, socket, poller):
         poller      Polling object bound to socket to test for READ ready
     """
 
+    global race_aborted #pylint: disable=global-statement
     num_lanes = config.num_lanes
     finish_times = [NOT_FINISHED, NOT_FINISHED, NOT_FINISHED, NOT_FINISHED]
 
@@ -211,9 +211,14 @@ def run_race(config, coordinator, display, socket, poller):
 
     # Wait for cars on the local starting lanes
     display.wait_local_ready()
+    print("In run_race()  race_aborted=", race_aborted)
     print("Waiting for cars at the gate")
-    while not all_lanes_ready(config):
+    while not all_lanes_ready(config) and not race_aborted:
         time.sleep(0.1)
+
+    if race_aborted:
+            return
+
     print("All Lanes Ready.")
 
     if config.multi_track:
@@ -289,6 +294,8 @@ def run_race(config, coordinator, display, socket, poller):
     # Placing a car on a lane terminates the results display and exits the race
 
     while all_lanes_empty(config):
+        if race_aborted:
+            return
         time.sleep(0.1)
 
 def main():
@@ -341,7 +348,7 @@ def main():
             except bluetooth.btcommon.BluetoothError:
                 print("Bluetooth exception caught.  Reconnecting...")
                 finish_line_connected = False
-                socket = connect_to_finish_line("FinishLine")
+                socket = connect_to_finish_line(config.finish_line_name)
             except Exception as exc: #pylint: disable=broad-except
                 print("Unexpected exception caught", exc)
                 traceback.print_exc()
