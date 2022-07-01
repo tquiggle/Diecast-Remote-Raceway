@@ -17,7 +17,7 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 
 import errno
 import json
-import os
+import sys
 import requests
 
 import deviceio
@@ -30,8 +30,8 @@ def key_pressed():
     Callback invoked when a key is pressed while blocked on communication with
     the coordinator.  Aborts the current execution.  The wrapper will restart.
     """
-    print("key_pressed(): os._exit(errno.ERESTART)")
-    os._exit(errno.ERESTART)
+    print("key_pressed(): sys.exit(errno.ERESTART)")
+    sys.exit(errno.ERESTART)
 
 class Coordinator:
     """
@@ -85,7 +85,7 @@ class Coordinator:
 
         json_string = json.dumps(registration).encode('utf-8')
 
-        print("register: ", json_string)
+        print("register: url=", self.register_url, "  data=", json_string)
         response = requests.post(self.register_url, data=json_string, headers=headers)
         print("response=", response)
 
@@ -148,25 +148,22 @@ class Coordinator:
 
 # PRIVATE:
 
+def main():
+    """
+    At some point I should write legitimate unit tests.  But for now, I just exercise
+    some basic functionality if the class is invoked as the Python main.
+    """
+
+    main_config = Config("config/starting_gate.json")
+    #pylint: disable=attribute-defined-outside-init, no-member
+    main_config.car_icons[CAR1] = "white"
+    main_config.car_icons[CAR2] = "police"
+    main_coord = Coordinator(main_config)
+    main_coord.register()
+    main_coord.start_race()
+
 
 if __name__ == '__main__':
-
-    def do_main():
-        #pylint: disable=attribute-defined-outside-init, no-member
-        """
-        At some point I should write legitimate unit tests.  But for now, I just exercise
-        some basic functionality if the class is invoked as the Python main.
-        """
-
-        main_config = Config("/home/tom/Raceway/StartingGate/config/starting_gate.json")
-        main_config.car_icons[CAR1] = "white"
-        main_config.car_icons[CAR2] = "police"
-
-        main_coord = Coordinator(main_config)
-
-        main_coord.register()
-        main_coord.start_race()
-
-    do_main()
+    main()
 
 # vim: expandtab sw=4
