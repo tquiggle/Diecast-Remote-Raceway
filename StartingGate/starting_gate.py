@@ -23,19 +23,19 @@ Copyright (c) Thomas Quiggle. All rights reserved.
 Licensed under the MIT license. See LICENSE file in the project root for full license information.
 """
 
-import bluetooth
 import json
 import operator
 import select
 import time
 import traceback
 
+import bluetooth
 import deviceio
 from deviceio import DeviceIO, SERVO, LANE1, LANE2, LANE3, LANE4
 
 from config import Config, NOT_FINISHED
 from coordinator import Coordinator
-from display import Display, NOT_FINISHED
+from display import Display
 
 # Globals (yea, I know)
 #pylint: disable=invalid-name
@@ -56,12 +56,15 @@ def key_pressed():
     race_aborted = True
 
 #TODO: Make this async and kick it off as early as possible.
-def connect_to_finish_line(target_name):
+def connect_to_finish_line(target_name, display, old_socket, poller):
     """ Perform a bluetooth scan for the Finish Line advertising itself as 'target_name'
         If found, establish a connection and return the connected socket
 
         Args:
             target_name:    The Bluetooth advertised name of the Finish Line to connect
+            display:        Display object to manage display of race state
+            old_socket:     The socket previously connected to the Finish Line or None
+            poller:         The Select.Poll object to add new BT socket to
 
         Returns:
             socket          The open socket to the Finish Line
@@ -74,6 +77,11 @@ def connect_to_finish_line(target_name):
     global finish_line_connected #pylint: disable=global-statement
 
     print("Attempting Bluetooth connection to ", target_name)
+
+    display.wait_finish_line()
+
+    if old_socket is not None:
+        poller.unregister(old_socket)
 
     while target_address is None:
         nearby_devices = bluetooth.discover_devices()
@@ -89,6 +97,7 @@ def connect_to_finish_line(target_name):
             print("Found ", target_name, ", connecting...")
             socket = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
             socket.connect((target_address, port))
+            poller.register(socket, READ_ONLY)
             finish_line_connected = True
             print("Connected to finish line")
             socket.send("HELO")
@@ -116,7 +125,7 @@ def all_lanes_empty(config):
         return LANE1.value + LANE2.value + LANE3.value == 0
     if num_lanes == 4:
         return LANE1.value + LANE2.value + LANE3.value + LANE4.value == 0
-
+    return 0 # Dead code, but makes pylint happy
 
 def all_lanes_ready(config):
     """ Scan the lane sensors to see if all lanes have cars present. """
@@ -211,13 +220,12 @@ def run_race(config, coordinator, display, socket, poller):
 
     # Wait for cars on the local starting lanes
     display.wait_local_ready()
-    print("In run_race()  race_aborted=", race_aborted)
     print("Waiting for cars at the gate")
     while not all_lanes_ready(config) and not race_aborted:
         time.sleep(0.1)
 
     if race_aborted:
-            return
+        return
 
     print("All Lanes Ready.")
 
@@ -260,7 +268,6 @@ def run_race(config, coordinator, display, socket, poller):
         except bluetooth.btcommon.BluetoothError as exc:
             if exc.args[0] == 'timed out':
                 print("Timeout waiting for race results. Finishing race")
-                break
             else:
                 print("purge_bluetooth_messages(): BluetoothError, other reason =", exc.args)
                 raise exc
@@ -308,7 +315,7 @@ def main():
     device = DeviceIO()
     coordinator = Coordinator(config)
     socket = None
-    poller = None
+    poller = select.poll()
     global finish_line_connected #pylint: disable=global-statement
 
     reset_starting_gate(config)
@@ -331,10 +338,7 @@ def main():
 
         # Establish Bluetooth connection to Finish Line
         if not finish_line_connected:
-            display.wait_finish_line()
-            socket = connect_to_finish_line(config.finish_line_name)
-            poller = select.poll()
-            poller.register(socket, READ_ONLY)
+            socket = connect_to_finish_line(config.finish_line_name, display, socket, poller)
 
         # Register with the race coordinator if multi-track race selected in menu
         if config.multi_track:
@@ -348,7 +352,7 @@ def main():
             except bluetooth.btcommon.BluetoothError:
                 print("Bluetooth exception caught.  Reconnecting...")
                 finish_line_connected = False
-                socket = connect_to_finish_line(config.finish_line_name)
+                socket = connect_to_finish_line(config.finish_line_name, display, socket, poller)
             except Exception as exc: #pylint: disable=broad-except
                 print("Unexpected exception caught", exc)
                 traceback.print_exc()
