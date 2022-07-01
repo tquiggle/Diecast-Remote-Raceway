@@ -15,10 +15,23 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 
 """
 
+import errno
 import json
+import os
 import requests
 
+import deviceio
+from deviceio import DeviceIO
+
 from config import Config, CAR0, CAR1, CAR2, CAR3 #pylint: disable=unused-import
+
+def key_pressed():
+    """
+    Callback invoked when a key is pressed while blocked on communication with
+    the coordinator.  Aborts the current execution.  The wrapper will restart.
+    """
+    print("key_pressed(): os._exit(errno.ERESTART)")
+    os._exit(errno.ERESTART)
 
 class Coordinator:
     """
@@ -49,6 +62,7 @@ class Coordinator:
         self.start_url = "http://{}:{}/start".format(config.coord_host, config.coord_port)
         self.results_url = "http://{}:{}/results".format(config.coord_host, config.coord_port)
         self.deregister_url = "http://{}:{}/deregister".format(config.coord_host, config.coord_port)
+        self.device = DeviceIO()
 
     def register(self):
         """
@@ -56,6 +70,11 @@ class Coordinator:
 
         See Coordinator/drr_server.js for detail of the json request/response format
         """
+
+        # Install key handler to abort action
+        self.device.push_key_handlers(key_pressed, key_pressed, key_pressed,
+                                 deviceio.default_joystick_handler)
+
         headers = {'Content-Type': 'application/json'}
 
         registration = {}
@@ -81,6 +100,8 @@ class Coordinator:
         self.config.remote_num_lanes = remote['numLanes']
         self.config.remote_car_icons = remote['carIcons']
 
+        self.device.pop_key_handlers()
+
     def deregister(self):
         """
         Deregister from the race coordinator, thus leaving the circuit
@@ -94,15 +115,24 @@ class Coordinator:
         Send message to coordinator that the local track is ready for the start of the
         race.  The GET request only returns when all tracks in the circuit are ready.
         """
+
+        # Install key handler to abort action
+        self.device.push_key_handlers(key_pressed, key_pressed, key_pressed,
+                                 deviceio.default_joystick_handler)
+
         print("start_race: GET ", self.start_url)
         response = requests.get(self.start_url)
         print("response=", response)
+        self.device.pop_key_handlers()
 
     def results(self, local_results):
         """
         Send local race results to the race coordintor and collect circuit-wide results
         in the response.
         """
+        self.device.push_key_handlers(key_pressed, key_pressed, key_pressed,
+                                 deviceio.default_joystick_handler)
+
         headers = {'Content-Type': 'application/json'}
 
         json_string = json.dumps(local_results).encode('utf-8')
@@ -113,6 +143,7 @@ class Coordinator:
 
         print("response.text=", response.text)
         result_string = response.text
+        self.device.pop_key_handlers()
         return result_string
 
 # PRIVATE:
