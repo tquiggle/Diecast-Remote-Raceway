@@ -51,9 +51,9 @@ def read_local_version():
         version_file = open("version.txt")
         version = version_file.readline()
         return version.rstrip()
-    else:
-        print("no local version file exists. Returning -1")
-        return "-1"
+
+    print("no local version file exists. Returning -1")
+    return "-1"
 
 def check_for_updates():
     """
