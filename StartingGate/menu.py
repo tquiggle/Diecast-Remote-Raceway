@@ -366,6 +366,7 @@ class Menu():
         """
 
         print("process_menus: self=", self)
+        self.race_type = None;
         self.device.push_key_handlers(self.__key1, self.__key2, self.__key3, self.__joystick)
         while (not self.pyray.window_should_close()) and (self.race_type is None):
             if self.cursor_pos != self.last_cursor_pos:
