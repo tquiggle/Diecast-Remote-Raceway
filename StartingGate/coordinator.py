@@ -23,7 +23,7 @@ import requests
 import deviceio
 from deviceio import DeviceIO
 
-from config import Config, CAR0, CAR1, CAR2, CAR3 #pylint: disable=unused-import
+from config import Config, CAR1, CAR2, CAR3, CAR4 #pylint: disable=unused-import
 
 def key_pressed():
     """

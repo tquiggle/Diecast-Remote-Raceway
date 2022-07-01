@@ -44,10 +44,10 @@ import sys
 NOT_FINISHED = sys.float_info.max
 
 # Constants for indexing into car_icons array
-CAR0 = 0
-CAR1 = 1
-CAR2 = 2
-CAR3 = 3
+CAR1 = 0
+CAR2 = 1
+CAR3 = 2
+CAR4 = 3
 
 # Persisted configuration variable names:
 CAR_ICONS = "car_icons"                 # Car icons for each lane

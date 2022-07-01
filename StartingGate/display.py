@@ -31,7 +31,7 @@ import time
 from raylib.pyray import PyRay
 from raylib.colors import WHITE, RAYWHITE, GRAY, BLACK, ORANGE
 
-from config import CAR0, CAR1, CAR2, CAR3, Config, NOT_FINISHED #pylint: disable=unused-import
+from config import CAR1, CAR2, CAR3, CAR4, Config, NOT_FINISHED #pylint: disable=unused-import
 from deviceio import car_1_present, car_2_present
 from menu import Menu
 
@@ -408,13 +408,13 @@ class Display(threading.Thread):
     def __draw_cars(self, texture1, texture2, texture3, texture4):
         #pylint: disable=bad-whitespace
         if self.config.multi_track:
-            self.pyray.draw_texture(texture1,  22, self.local_y[CAR0],  WHITE)
-            self.pyray.draw_texture(texture2,  68, self.local_y[CAR1],  WHITE)
-            self.pyray.draw_texture(texture3, 142, self.remote_y[CAR0], WHITE)
-            self.pyray.draw_texture(texture4, 188, self.remote_y[CAR1], WHITE)
+            self.pyray.draw_texture(texture1,  22, self.local_y[CAR1],  WHITE)
+            self.pyray.draw_texture(texture2,  68, self.local_y[CAR2],  WHITE)
+            self.pyray.draw_texture(texture3, 142, self.remote_y[CAR1], WHITE)
+            self.pyray.draw_texture(texture4, 188, self.remote_y[CAR2], WHITE)
         else:
-            self.pyray.draw_texture(texture1,  40, self.local_y[CAR0],  WHITE)
-            self.pyray.draw_texture(texture2, 140, self.local_y[CAR1],  WHITE)
+            self.pyray.draw_texture(texture1,  40, self.local_y[CAR1],  WHITE)
+            self.pyray.draw_texture(texture2, 140, self.local_y[CAR2],  WHITE)
 
 
     def __draw_result(self, track_count, track_number, lane_number, lane_time, place):
@@ -496,13 +496,13 @@ class Display(threading.Thread):
 
     def __wait_remote_ready(self):
         wait_msg = "Waiting for: " + self.config.remote_track_name
-        self.__draw_cars(self.local_textures[CAR0], self.local_textures[CAR1],
+        self.__draw_cars(self.local_textures[CAR1], self.local_textures[CAR2],
                          self.question_texture, self.question_texture)
         self.__text_message(wait_msg)
 
     def __countdown(self):
-        self.__draw_cars(self.local_textures[CAR0], self.local_textures[CAR1],
-                         self.remote_textures[CAR0], self.remote_textures[CAR1])
+        self.__draw_cars(self.local_textures[CAR1], self.local_textures[CAR2],
+                         self.remote_textures[CAR1], self.remote_textures[CAR2])
         now = time.monotonic()
         if now - self.countdown_start > 3.0:
             self.countdown_event.set()
