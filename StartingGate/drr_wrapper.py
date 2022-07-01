@@ -37,7 +37,7 @@ def fetch_latest_version():
         response = requests.get(version_url)
         return response.text.rstrip()
     except:
-        return -1
+        return "-1"
 
 
 def read_local_version():
