@@ -65,6 +65,12 @@ def car_3_present():
     """
     return LANE3.value
 
+def car_4_present():
+    """
+    Returns True if the LANE4 sensor detects a car in the lane 4 starting gate
+    """
+    return LANE4.value
+
 def default_key_1_handler():
     """
     Default handler to call when key 1 is pressed and no application handler is registered
@@ -89,13 +95,7 @@ def default_joystick_handler(btn):
     """
     print("Default joystick_handler", btn)
 
-def car_4_present():
-    """
-    Returns True if the LANE3 sensor detects a car in the lane 3 starting gate
-    """
-    return LANE4.value
-
-class DeviceIO():
+class DeviceIO:
     """
     The DeviceIO class maintains a stack of handler functions for
     the joystick and buttons.  There is a single handler for the
