@@ -2,6 +2,12 @@
 The Diecast Remote Raceway (DRR) allows participants to race 1:64 scale die-cast cars (such as the popular Hot Wheels® cars from 
 [Mattel](https://www.mattel.com/en-us)), head-to-head, from remote locations.  A DRR consists of an automated Starting Gate, an electronic Finish Line, and a web service that coordinates races between multiple raceways via the internet.
 
+The DRR is comprised of three components:
+
+* The Starting Gate that manages races on a single track.  The Starting Gate houses a Raspberry Pi Zero W single board computer that performs all local race operations. Reflective infrared track sensors plug into the Starting Gate to signal the presence of a car positioned in each starting location.  A race begins when cars are present in all lanes.  The Starting Gate connects via Bluetoot to the Finish Line that reports when cars finish a race.
+* The Finish Line houses an ESP32 Arduino dev board that reports when a car passes over a sensor in each lane.
+* The Coordinator is a Node.js application that coordinates the actions of multiple tracks competing against each other.  Each track signals when all lanes have cars ready to race.  When all tracks are ready, the Coordinator signals all tracks to start the local race.  Tracks report the elapsed time for each lane back to the coordinator, which then computes the overall race standings and returns the results to each track to display the race results.
+
 ## Operation
 
 Start by mounting the Starting Gate onto a suitable elevated surface. The mount on the bottom of
