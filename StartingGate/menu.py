@@ -346,7 +346,7 @@ TEXT[MenuState.RESET] = "Factory Reset"
 # Display function to call based on current menu position
 FUNCTION = {}
 
-class Menu():
+class Menu:
     """
     This class implements the menu displayed at startup.  There is a single public
     method, process_menus(), to perform all menu operations.
@@ -691,7 +691,6 @@ class Menu():
         self.cursor_pos = MenuState.RACE_TIMEOUT
         self.config_updated = self.config.race_timeout != original_timeout
 
-
     def __enter_wifi_pswd(self):
         """
         Perform action to enter WiFi password
@@ -973,23 +972,22 @@ class Menu():
             self.__text_box(value,  10,  53, 210, 40, 28)
             self.pyray.end_drawing()
 
+def main():
+    """
+    When run as main program, create Menu object and run main function
+    """
+    main_pyray = PyRay()
+    main_config = Config("./config/starting_gate.json")
+
+    main_pyray.init_window(240, 240, "Menu Test")
+    main_pyray.set_target_fps(30)
+    main_pyray.hide_cursor()
+
+    main_font = main_pyray.load_font("fonts/Roboto-Black.ttf")
+    menu = Menu(main_pyray, main_font, main_config)
+    menu.process_menus()
+
 if __name__ == '__main__':
-
-    def do_main():
-        """
-        When run as main program, create Menu object and run main function
-        """
-        main_pyray = PyRay()
-        main_config = Config("./config/starting_gate.json")
-
-        main_pyray.init_window(240, 240, "Menu Test")
-        main_pyray.set_target_fps(30)
-        main_pyray.hide_cursor()
-
-        main_font = main_pyray.load_font("fonts/Roboto-Black.ttf")
-        menu = Menu(main_pyray, main_font, main_config)
-        menu.process_menus()
-
-    do_main()
+    main()
 
 # vim: expandtab sw=4
