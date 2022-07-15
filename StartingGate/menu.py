@@ -491,7 +491,10 @@ class Menu:
         """
         #pylint: disable=bad-whitespace
         self.pyray.draw_texture(self.single_track_texture, 10,  45, WHITE)
-        self.pyray.draw_texture(self.multi_track_texture,  10, 100, WHITE)
+        if self.config.allow_multi_track:
+            self.pyray.draw_texture(self.multi_track_texture,  10, 100, WHITE)
+        else:
+            self.pyray.draw_texture(self.multi_track_texture,  10, 100, LIGHTGRAY)
         self.pyray.draw_texture(self.configure_texture,    10, 155, WHITE)
 
     def __config_menu(self):
@@ -826,9 +829,10 @@ class Menu:
         """
         User pressed key2 selecting multi track race
         """
-        print("menu: key2 pressed")
-        self.race_type = MenuState.MULTI_TRACK
-        self.config.multi_track = True
+        print("menu: key2 pressed, allow_multi_track=", self.config.allow_multi_track)
+        if self.config.allow_multi_track:
+            self.race_type = MenuState.MULTI_TRACK
+            self.config.multi_track = True
 
     def __key3(self):
         """

@@ -328,7 +328,7 @@ def main():
         race_aborted = False
 
         # De-register with race coordinator.
-        coordinator.deregister()
+        config.allow_multi_track = coordinator.deregister()
 
         # Display the main menu and wait for race selection
         display.wait_menu()

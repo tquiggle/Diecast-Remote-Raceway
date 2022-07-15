@@ -105,10 +105,16 @@ class Coordinator:
     def deregister(self):
         """
         Deregister from the race coordinator, thus leaving the circuit
+        Returns True if deregistration request succeeded, False otherwise.
         """
-        print("deregister: ")
-        response = requests.post(self.deregister_url, data="")
-        print("response=", response)
+        try:
+            print("deregister: ")
+            response = requests.post(self.deregister_url, data="")
+            print("response=", response)
+            return True
+        except:
+            print("Exception during deregister")
+            return False
 
     def start_race(self):
         """

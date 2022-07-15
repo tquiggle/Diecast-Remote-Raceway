@@ -64,6 +64,7 @@ WIFI_PSWD = "wifi_pswd"                 # WiFi Password
 WIFI_SSID = "wifi_ssid"                 # WiFi SSID
 
 # Ephemeral configuration variable names
+ALLOW_MULTI_TRACK = "allow_multi_track" # Allow multi-track races
 IP_ADDRESS = "ip_address"               # IP Address as seen by race coordinator
 MULTI_TRACK = "multi_track"             # Tracks in the current racing session, including self
 REMOTE_TRACK_NAME = "remote_track_name" # Name of the remote track we are racing against
@@ -83,7 +84,8 @@ PERSISTED_CONFIGS = [CAR_ICONS,
                      WIFI_PSWD,
                      WIFI_SSID]
 
-EPHEMERAL_CONFIGS = [IP_ADDRESS,
+EPHEMERAL_CONFIGS = [ALLOW_MULTI_TRACK,
+                     IP_ADDRESS,
                      MULTI_TRACK,
                      REMOTE_TRACK_NAME,
                      REMOTE_NUM_LANES,
@@ -124,6 +126,7 @@ class Config:
     DEFAULT[COORDINATOR_PORT] = 1968
     DEFAULT[FINISH_LINE_NAME] = "FinishLine"
     DEFAULT[IP_ADDRESS] = "127.0.0.1"
+    DEFAULT[ALLOW_MULTI_TRACK] = False
     DEFAULT[MULTI_TRACK] = False
     DEFAULT[NUM_LANES] = 2
     DEFAULT[RACE_TIMEOUT] = 5.0
