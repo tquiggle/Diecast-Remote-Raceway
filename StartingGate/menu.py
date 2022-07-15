@@ -83,12 +83,12 @@ import enum
 import glob
 import time
 
+from raylib.pyray import PyRay
+from raylib.colors import BLACK, LIGHTGRAY, ORANGE, RAYWHITE, WHITE
+
 from deviceio import DeviceIO, JOYU, JOYD, JOYL, JOYR, JOYP, SERVO
 from input import Input, MODE_SPECIAL
 from config import Config
-
-from raylib.pyray import PyRay
-from raylib.colors import BLACK, LIGHTGRAY, ORANGE, RAYWHITE, WHITE
 
 @enum.unique
 class MenuState(enum.Enum):
@@ -159,8 +159,7 @@ class MenuState(enum.Enum):
         cls = self.__class__
         members = list(cls)
         index = members.index(self) - 1
-        if index < 0:
-            index = 0
+        index = max(index, 0)
         return members[index]
 
 # Menu transitions when the joystick is pushed UP
@@ -366,7 +365,7 @@ class Menu:
         """
 
         print("process_menus: self=", self)
-        self.race_type = None;
+        self.race_type = None
         self.device.push_key_handlers(self.__key1, self.__key2, self.__key3, self.__joystick)
         while (not self.pyray.window_should_close()) and (self.race_type is None):
             if self.cursor_pos != self.last_cursor_pos:
@@ -846,7 +845,6 @@ class Menu:
         """
         Callback function for key press that performs no operation
         """
-        pass
 
     def __joystick_enter_race_timeout(self, btn):
         """
