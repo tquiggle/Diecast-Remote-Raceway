@@ -65,13 +65,15 @@ Attribution - NonCommercial - ShareAlike](https://creativecommons.org/licenses/b
 
 ### Controller
 
+![Display](../images/Display.jpg)
+
 The control hardware is housed in a three piece case that is based on [JdaieLin](https://github.com/JdaieLin)'s [PiSugar Case](https://github.com/PiSugar/PiSugar).  The controller consists of four 3D printed components:
 
 * bottom-cover.stl - this is an optional bottom cap for use on a completed controller case 
 while testing, before mounting to a set of starting gate lanes.  It is based on the PiSugar [pisugar_case_common_cap.STL](https://github.com/PiSugar/PiSugar/blob/master/model/pisugar_case_common_cap.STL) but has been modified to slightly beef up the clips that hold the cap onto the bottom of the pi-zero-case.
 * pi-zero-case.stl - a modified version of PiSugar's
 [pisugar_nobatt_shell.STL](https://github.com/PiSugar/PiSugar/blob/master/model/pisugar_nobatt_shell.STL) with embossed labels for the exposed ports. The Raspberry Pi Zero W board mounts to this case.
-* connector-case.stl - case for the Prototyping pHAT with JST connectors. Snaps onto the
+* connector-case.stl - case for the Prototyping pHAT or custom PCB with JST connectors. Snaps onto the
 pi-zero-case.
 * lcd-cap.stl - a slightly modified version of the PiSugar 
 [1.3inch_lcd_cap](https://github.com/PiSugar/pisugar-case-pihat-cap/blob/master/1.3inch_lcd_cap/pisugar_case_lcd_cap.STL)
@@ -90,11 +92,18 @@ derived, the Controller case components are released under the
 
 ## Hardware
 
+The Controller electronics is comprised of a stack of 3 circuit boards: a Raspberry Pi Zero, a custom Connector Breakout Board that the servo and lane sensors plug
+into, and a Waveshare 1.3" LCD Hat for input and display.
+
+![Stackzero](../images/Stack.jpg)
+
+### Raspberry Pi Zero
+
 The Starting Gate is controlled by a Raspberry Pi Zero W.  These are available for about $10 without the GPIO header or about $15 for the Pi Zero WH model with preinstalled GPIO headers.
 
-![IR Sensors](../images/GPIO-zero.jpg)
+![GPIO-zero](../images/GPIO-zero.jpg)
 
-### GPIO Usage
+#### GPIO Usage
 
 | SYMBOL | BROADCOM GPIO (BCM) | RASPBERRY PI PIN | DESCRIPTION |
 |:------:|:-------------------:|:----------------:|:-----------:|
@@ -119,16 +128,32 @@ The Starting Gate is controlled by a Raspberry Pi Zero W.  These are available f
 | LANE4 | GPIO4 | 7 | Lane 4 Sensor |
 
 
-### Prototyping pHAT Schematic
+### Connector Breakout Board
+
+The Connector Breakout Board (CBB) connects to the Raspberry Pi GPIO connector and provides JST connectors to plug in the servo and lane sensors. There are
+two options for the CBB: use a commercially available ModMyPi Zero Prototying pHat and solder jumper wires to create the necessary circuit, or use the
+provided Gerber files to have a custom PCB printed. The PCB solution involves less soldering and is cleaner, but requires you to have the PCBs
+fabricated.  I used [PCBWay][https://www.pcbway.com/].  I still have a few of the blank PCBs.  If you are seriously building a DRR, reach out to me and
+I can mail you one.
+
+#### Prototyping pHAT Schematic
 
 Connections to the car release servo and lane car sensors
 are made via JST connectors soldered to a [ModMyPi Zero Prototyping
 pHAT.](https://www.pishop.us/product/zero-prototyping-phat-zero/). The
 schematic is shown below.
 
-![GPIO Usage](../images/Schematics-3.3V.png)
+![pHAT-Schematics](../images/Schematics-3.3V.png)
+
+#### Custom PCB
+
+The Gerber files for the CBB HAT can be found in the gerber folder.
+
+![CBB](../images/CBB.jpg)
 
 ### Waveshare 1.3" LED HAT
+
+The Waveshare 1.3" LCD HAT provide three button input and a joystick for navigation.  The race state and results are shown on the display.
 
 ![LCD HAT](../images/waveshare-lcd.png)
 
