@@ -72,7 +72,7 @@ The control hardware is housed in a three piece case that is based on [JdaieLin]
 * bottom-cover.stl - this is an optional bottom cap for use on a completed controller case 
 while testing, before mounting to a set of starting gate lanes.  It is based on the PiSugar [pisugar_case_common_cap.STL](https://github.com/PiSugar/PiSugar/blob/master/model/pisugar_case_common_cap.STL) but has been modified to slightly beef up the clips that hold the cap onto the bottom of the pi-zero-case.
 * pi-zero-case.stl - a modified version of PiSugar's
-[pisugar_nobatt_shell.STL](https://github.com/PiSugar/PiSugar/blob/master/model/pisugar_nobatt_shell.STL) with embossed labels for the exposed ports. The Raspberry Pi Zero W board mounts to this case.
+[pisugar_nobatt_shell.STL](https://github.com/PiSugar/PiSugar/blob/master/model/pisugar_nobatt_shell.STL) with embossed labels for the exposed ports. The Raspberry Pi Zero board mounts to this case.
 * connector-case.stl - case for the Prototyping pHAT or custom PCB with JST connectors. Snaps onto the
 pi-zero-case.
 * lcd-cap.stl - a slightly modified version of the PiSugar 
@@ -81,7 +81,7 @@ with fillets to beef up the clips.  You will need to print the buttons and joyst
 the original design. The file is
 [pisugar_case_lcd_button_comp.STL](https://github.com/PiSugar/pisugar-case-pihat-cap/blob/master/1.3inch_lcd_cap/pisugar_case_lcd_button_comp.STL).
 
-* mount.stl
+* mount.stl - a bracket that screws to the back of lanes 1 & 2 and holds the controller case. The controller snaps onto the mount.
 
 #### License
 
@@ -92,8 +92,7 @@ derived, the Controller case components are released under the
 
 ## Hardware
 
-The Controller electronics is comprised of a stack of 3 circuit boards: a Raspberry Pi Zero, a custom Connector Breakout Board that the servo and lane sensors plug
-into, and a Waveshare 1.3" LCD Hat for input and display.
+The Controller electronics is comprised of a stack of 3 circuit boards: a Raspberry Pi Zero W (or Zero 2 W), a custom Connector Breakout Board that the servo and lane sensors plug into, and a Waveshare 1.3" LCD Hat for input and display.
 
 ![Stackzero](../images/Stack.jpg)
 
@@ -133,7 +132,7 @@ The Starting Gate is controlled by a Raspberry Pi Zero W.  These are available f
 The Connector Breakout Board (CBB) connects to the Raspberry Pi GPIO connector and provides JST connectors to plug in the servo and lane sensors. There are
 two options for the CBB: use a commercially available ModMyPi Zero Prototying pHat and solder jumper wires to create the necessary circuit, or use the
 provided Gerber files to have a custom PCB printed. The PCB solution involves less soldering and is cleaner, but requires you to have the PCBs
-fabricated.  I used [PCBWay][https://www.pcbway.com/].  I still have a few of the blank PCBs.  If you are seriously building a DRR, reach out to me and
+fabricated.  I used [PCBWay](https://www.pcbway.com/).  I still have a few of the blank PCBs.  If you are seriously building a DRR, reach out to me and
 I can mail you one.
 
 #### Prototyping pHAT Schematic
@@ -173,153 +172,82 @@ The Starting Gate consists of the following components
 
 ## Raspberry Pi Setup
 
-### Install Raspbian
+### Install Raspberry PI OS
 
+The DRR software writes directly to the framebuffer and does not need a desktop OS image.
 
-Detailed notes on initial setup:
+I strongly recommend you install via the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).  You will need a minimum 8GB microSDHC card.
+Insert the card into an appropriate card reader on your computer.
 
-1. Install the last version of Raspbian, which is based on the 4.19 kernel.  Raspberry Pi OS is
-based on kernel version 5.4 kernel which has dropped support for the fb1 framebuffer as 
-fbtft_device.  The Wavefront 1.3" LCD HAT does not have Raspberry Pi Device Tree support to
-work with the 5.4 kernel.  Get the download image from:
+Run the Raspberry Pi Imager and select your board.
 
-	https://downloads.raspberrypi.org/raspbian_lite/images/raspbian_lite-2020-02-14/
+1.  Click on "CHOOSE DEVICE" and select either the "Raspberry Pi Zero W" or "Raspberry Pi Zerro 2 W" depending in which board you are using.
+1.  Click on "CHOOSE OS" and select "Raspberry Pi OS (other)" then "Rasboerry Pi OS Lite (32-bit)"
+1.  Click on "CHOOSE STORAGE" and select the appropriate option for the storage card you are initializing
+1.  Click on "NEXT" and when asked to apply OS customisation settings, click "EDIT SETTINGS"
+    * Under "General," provide a hostname, username and password, LAN configuration and Locale settings.
+    * Under "Services" enable SSH.
+1.  After editing settings, click on "YES"
+1.  Click on "YES" to write the OS image to your SD card
 
-    I chose Raspberry Pi OS Lite, as I didn't need a GUI.  Follow the instructions at:
+Once your SD card is initialized insert it into your Raspberry Pi Zero.  You can either connect a keyboard and monitor or just SSH into the device when it
+boots. Log in using the username and password you created when running the Raspberry Pi Imager.
 
-	https://www.raspberrypi.org/documentation/installation/installing-images/README.md
+Once logged in, I recommend you upgrade any packages:
 
-    Follow the instructions to create a wpa_supplicant.conf file in the boot partition:
+```
+sudo apt update
+sudo apt upgrade
+```
 
-	https://www.raspberrypi.org/documentation/configuration/wireless/headless.md
+### Setup the Waveshare 1.3" LCD HAT
 
-    If you want ssh access, also create an empty file named 'ssh' in the boot partition.
+Raspberry OS Bookworm has native support for the st7799 display driver chip.  There is no need to follow the instructions from the [Waveshare
+Wiki](https://www.waveshare.com/wiki/1.3inch_LCD_HAT). The shell script `setup-waveshare-1.3-HAT.sh` in the util subdirectory will perform all necessary changes to a base Raspberry OS system.
 
-1.  Run configure 
+```
+wget https://raw.githubusercontent.com/tquiggle/Diecast-Remote-Raceway/refs/heads/master/StartingGate/util/setup-waveshare-1.3-HAT.sh
+chmod 755 setup-waveshare-1.3-HAT.sh 
+sudo ./setup-waveshare-1.3-HAT.sh
+```
 
-      ```
-      % sudo raspi-config
-      ```
+### Install Python 3 and the necessary libraries
 
-    And perform the following:
+1. Install the necessary prerequisites:
 
-    1. Change User Password
-
-       Change the default password from raspberry to something else
-
-    1. Network Options
-
-       If you didn't set up wireless config via wpa_supplicant.conf on the sd card,
-       navigate to "Network Options" -> "N2 Wireless LAN" and setup your SSID and
-       passphrase.
-
-    1. Localisation Options
-
-       Set your timezone (and Keyboard, Locale or any other options you like)
-
-    1. Interfacing Options
-
-       Enable "P4 SPI"
-
-    1. Advanced Options
-
-       A1 Expand Filesystem
-
-    Note: I also enabled SSH via "5 Interfacing Options" -> "P2 SSH"
-
-    When asked to reboot, select Yes
-
-1.  Update the OS to the latest 4.19.118 packages.  DO NOT ALLOW IT TO UPDATE TO 5.x, the display HAT won't work!
-
-      ```
-      % sudo apt-get update
-      % sudo apt-get upgrade
-      ```
-
-1.  Install Python 3 and the necessary libraries
-
-      ```
-      % sudo apt-get install python3 python3-gpiozero python3-pigpio python3-bluez python3-pip wiringpi
-      % sudo apt autoremove
-      ```
+    ```
+    sudo apt install -y cmake git python3 python3-gpiozero python3-pigpio python3-bluez python3-pip libegl1-mesa-dev libgbm-dev libgles2-mesa-dev libdrm-dev
+    ```
 
 1.  Have pigpiod start on every boot
 
-      ```
-      % sudo systemctl enable pigpiod
-      ```
+    ```
+    sudo systemctl enable pigpiod
+    ```
 
-1. Update default config.txt
+### Build the 32 bit DRM version of Raylib
 
-      ```
-      % sudo nano /boot/config.txt
-      ```
-    
-    Disable audio since we aren't going to be using it and we want the PCM driver for the
-    servo
+This mostly follows the instructions at the [Python Bindings for Raylib 5.5](https://electronstudio.github.io/raylib-python-cffi/README.html) Github page for [Compile Raylib from source DRM mode](https://electronstudio.github.io/raylib-python-cffi/RPI.html#option-3-compile-raylib-from-source-drm-mode) for the Raspberry Pi.
 
-      ```
-      #dtparam=audio=on
-      dtparam=spi=on
-      ```
+1. Build a shared lib version of Raylib in DRM mode and install to /usr:
 
-    TODO: Verify this is needed - Setup framebuffer device
+    ```
+    git clone https://github.com/raysan5/raylib.git --branch 5.0 --single-branch
+    cd raylib
+    mkdir build
+    rm rf build/*
+    cd build
+    cmake -DPLATFORM="DRM" -DBUILD_EXAMPLES=OFF -DCUSTOMIZE_BUILD=ON -DSUPPORT_FILEFORMAT_JPG=ON -DSUPPORT_FILEFORMAT_FLAC=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
+    make -j
+    sudo make install
+    ```
 
-      ```
-      [ALL]
-      hdmi_force_hotplug = 1
-      hdmi_cvt = 240 240 60 1 0 0 0
-      hdmi_group = 2
-      hdmi_mode = 1
-      hdmi_mode = 87
-      display_rotate = 1
-      ```
+1. Then have pip compile and install the wheel for the python bindings:
 
-1.  Enable framebuffer modules
+    ```
+    python3 -m pip install --break-system-packages setuptools
+    python3 -m pip install --no-cache-dir --no-binary raylib --upgrade --force-reinstall --break-system-packages raylib==5.5.0.0
+    ```
 
-      ```
-    % sudo nano /etc/modules
-      ```
-    
-      ```
-    spi-bcm2835
-    flexfb
-    fbtft_device
-      ```
+That's it, you sould be able to run the DRR python application.
 
-1. Create fbtft.conf
-
-      ```
-   % sudo nano /etc/modprobe.d/fbtft.conf
-      ```
-
-   Add the lines:
-
-      ```
-   options fbtft_device name=flexfb gpios=reset:27,dc:25,cs:8,led:24 speed=40000000 bgr=1 fps=60 custom=1 height=240 width=240
-   options flexfb gsetaddrwin=0 width=240 height=240 init=-1,0x11,-2,120,-1,0x36,0x70,-1,0x3A,0x05,-1,0xB2,0x0C,0x0C,0x00,0x33,0x33,-1,0xB7,0x35,-1,0xBB,0x1A,-1,0xC0,0x2C,-1,0xC2,0x01,-1,0xC3,0x0B,-1,0xC4,0x20,-1,0xC6,0x0F,-1,0xD0,0xA4,0xA1,-1,0x21,-1,0xE0,0x00,0x19,0x1E,0x0A,0x09,0x15,0x3D,0x44,0x51,0x12,0x03,0x00,0x3F,0x3F,-1,0xE1,0x00,0x18,0x1E,0x0A,0x09,0x25,0x3F,0x43,0x52,0x33,0x03,0x00,0x3F,0x3F,-1,0x29,-3 
-      ```
-
-1. Build and install rpi-fbcp
-
-      ```
-    % cd
-    % sudo apt-get install -y git build-essential cmake
-    % git clone https://github.com/tasanakorn/rpi-fbcp
-    % mkdir -p rpi-fbcp/build
-    % cd rpi-fbcp/build
-    % cmake ..
-    % make
-    % sudo install fbcp /usr/local/bin/fbcp
-    % cd
-      ```
-
-1. Install raylib
-
-   * Build raylib from source https://github.com/raysan5/raylib/wiki/Working-on-Raspberry-Pi
-
-      ```
-   % wget https://github.com/raysan5/raylib/archive/2.6.0.tar.gz
-   % tar xzf 2.6.0.tar.gz
-   % cd 
-      ```
