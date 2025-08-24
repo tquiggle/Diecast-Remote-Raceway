@@ -13,6 +13,7 @@ Copyright (c) Thomas Quiggle. All rights reserved.
 Licensed under the MIT license. See LICENSE file in the project root for full license information.
 """
 
+import time
 from gpiozero import Device, DigitalInputDevice, Button, Servo
 from gpiozero.pins.pigpio import PiGPIOFactory
 
@@ -26,26 +27,23 @@ Device.pin_factory = PiGPIOFactory()
 # Also, I don't care what the Python style guide says, I find the following aligned
 # layout MUCH more readable than the pythonic spacing.
 #
-# pylint: disable=bad-whitespace
 
-JOYU =  Button("GPIO6",  True, None, 0.020)                    # Pin 31
-JOYD =  Button("GPIO19", True, None, 0.020)                    # Pin 35
-JOYL =  Button("GPIO5",  True, None, 0.020)                    # Pin 29
-JOYR =  Button("GPIO26", True, None, 0.020)                    # Pin 37
-JOYP =  Button("GPIO13", True, None, 0.020)                    # Pin 33
+JOYU =  Button(pin="GPIO6",  bounce_time=0.020)                    # Pin 31
+JOYD =  Button(pin="GPIO19", bounce_time=0.020)                    # Pin 35
+JOYL =  Button(pin="GPIO5",  bounce_time=0.020)                    # Pin 29
+JOYR =  Button(pin="GPIO26", bounce_time=0.020)                    # Pin 37
+JOYP =  Button(pin="GPIO13", bounce_time=0.020)                    # Pin 33
 
-KEY_1 = Button("GPIO21", True, None, 0.100)                    # Pin 40
-KEY_2 = Button("GPIO20", True, None, 0.100)                    # Pin 38
-KEY_3 = Button("GPIO16", True, None, 0.100)                    # Pin 36
+KEY_1 = Button(pin="GPIO21", bounce_time=0.100)                    # Pin 40
+KEY_2 = Button(pin="GPIO20", bounce_time=0.100)                    # Pin 38
+KEY_3 = Button(pin="GPIO16", bounce_time=0.100)                    # Pin 36
 
-LANE1 = DigitalInputDevice("GPIO7",  True, None, 0.200)        # Pin 26
-LANE2 = DigitalInputDevice("GPIO23", True, None, 0.200)        # Pin 16
-LANE3 = DigitalInputDevice("GPIO22", True, None, 0.200)        # Pin 15
-LANE4 = DigitalInputDevice("GPIO4",  True, None, 0.200)        # Pin 07
+LANE1 = DigitalInputDevice(pin="GPIO7",  bounce_time=0.200)        # Pin 26
+LANE2 = DigitalInputDevice(pin="GPIO23", bounce_time=0.200)        # Pin 16
+LANE3 = DigitalInputDevice(pin="GPIO22", bounce_time=0.200)        # Pin 15
+LANE4 = DigitalInputDevice(pin="GPIO4",  bounce_time=0.200)        # Pin 07
 
-SERVO = Servo("GPIO12")                                        # Pin 32
-
-# pylint: enable=bad-whitespace
+SERVO = Servo("GPIO12")                                            # Pin 32
 
 def car_1_present():
     """
@@ -196,5 +194,25 @@ class DeviceIO:
 
     def __getattr__(self, item):
         return getattr(self.instance, item)
+
+
+def main():
+    """
+    When run as main program, create DeviceIO object.
+    While running, pressing the display HAT buttons or
+    moving the joystick will print what action was
+    taken.
+    """
+
+    print("Creating DeviceIO instance")
+    device_io = DeviceIO()
+
+    print("Sleeping for 5 minutes")
+    time.sleep(300)
+
+    device_io.pop_key_handlers()
+
+if __name__ == '__main__':
+    main()
 
 # vim: expandtab sw=4

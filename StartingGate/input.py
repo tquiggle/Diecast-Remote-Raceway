@@ -16,10 +16,10 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 
 import time
 
-from deviceio import DeviceIO, JOYU, JOYD, JOYL, JOYR, JOYP
+import pyray
+from pyray import BLACK, WHITE, GRAY, LIGHTGRAY, RAYWHITE
 
-from raylib.pyray import PyRay
-from raylib.colors import BLACK, WHITE, GRAY, LIGHTGRAY, RAYWHITE
+from deviceio import DeviceIO, JOYU, JOYD, JOYL, JOYR, JOYP
 
 #
 # Input via selection from a 6x6 grid.  Grid positions are numbered:
@@ -35,7 +35,6 @@ from raylib.colors import BLACK, WHITE, GRAY, LIGHTGRAY, RAYWHITE
 # Given the current cursor position, the cell to move to when the
 # joystick key is pressed in each direction.
 
-#pylint: disable=bad-whitespace,bad-continuation
 UP = [  24, 25, 26, 27, 28, 29,
          0,  1,  2,  3,  4,  5,
          6,  7,  8,  9, 10, 11,
@@ -78,7 +77,6 @@ SPECIAL = ["0", "1", "2", "3", "4", "5",
            ":", ";", "'", '"', "+", "=",
            "!", "@", "#", "$", "%", "?",
            "&", "*", "(", ")", "-", "_"]
-#pylint: enable=bad-whitespace,bad-continuation
 
 # Names of character maps
 MODE_UPPER = 1
@@ -119,12 +117,11 @@ class Input:
             length = len(input_string)
             if length <= 12:
                 return 28
-            elif length <= 15:
+            if length <= 15:
                 return 20
-            elif length <= 18:
+            if length <= 18:
                 return 16
-            else:
-                return 12
+            return 12
 
         self.cursor_pos = 0
         self.input_complete = False
@@ -136,8 +133,8 @@ class Input:
         while not self.input_complete:
             display_string = ""
 
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
 
             #blink = int(time.monotonic_ns()/400000000) % 2
             blink = int(time.monotonic()*4) % 2
@@ -150,29 +147,28 @@ class Input:
             self.__text_box(display_string, 0, 0, 240, 40, font_size(self.string), True)
 
             if self.mode == MODE_UPPER:
-                for pos in range(0, len(UPPER)):
-                    self.__character_position(UPPER[pos], pos)
+                for pos, char in enumerate(UPPER):
+                    self.__character_position(char, pos)
                 self.__character_box("SPACE", 80, 200, 160, 40, 28, self.cursor_pos > 25)
             elif self.mode == MODE_LOWER:
-                for pos in range(0, len(LOWER)):
-                    self.__character_position(LOWER[pos], pos)
+                for pos, char in enumerate(LOWER):
+                    self.__character_position(char, pos)
                 self.__character_box("space", 80, 200, 160, 40, 28, self.cursor_pos > 25)
             elif self.mode == MODE_SPECIAL:
-                for pos in range(0, len(SPECIAL)):
-                    self.__character_position(SPECIAL[pos], pos)
+                for pos,char in enumerate(SPECIAL):
+                    self.__character_position(char, pos)
             else:
                 print("INVALID MODE!")
 
-            self.pyray.end_drawing()
+            pyray.end_drawing()
 
         self.device.pop_key_handlers()
         return self.string
 
 # PRIVATE
 
-    def __init__(self, pyray, font):
+    def __init__(self, font):
 
-        self.pyray = pyray
         self.font = font
 
         self.device = DeviceIO()
@@ -230,17 +226,16 @@ class Input:
     def __text_box(self, text, x, y, width, height, size, gray=False): # pylint: disable=invalid-name
         """
         Draw a box at position (x,y) with a width w and height h.
-        Display text b with point size s within th box.
+        Display text b with point size s within the box.
         If gray=True, set the box fill color to gray and the text color to white
         """
         if gray:
-            self.pyray.draw_rectangle_rec([x, y, width, height], LIGHTGRAY)
+            pyray.draw_rectangle_rec([x, y, width, height], LIGHTGRAY)
         else:
-            self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+            pyray.draw_rectangle_rec([x, y, width, height], WHITE)
 
-        self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
-        self.pyray.draw_text_rec(self.font, text, [x+10, y+5, width-10, height-5],
-                                 size, 5.0, True, BLACK)
+        pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+        pyray.draw_text_ex(self.font, text, [x+10, y+5], size, 1.0, BLACK)
 
     def __character_box(self, text, x, y, width, height, size, inverted=False): # pylint: disable=invalid-name
         """
@@ -252,14 +247,12 @@ class Input:
         match that of __character_position()
         """
         if inverted:
-            self.pyray.draw_rectangle_rec([x, y, width, height], GRAY)
-            self.pyray.draw_text_rec(self.font, text, [x+10, y+10, width, height],
-                                     size, 10.0, True, WHITE)
+            pyray.draw_rectangle_rec([x, y, width, height], GRAY)
+            pyray.draw_text_ex(self.font, text, [x+10, y+10], size, 1.0, WHITE)
         else:
-            self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-            self.pyray.draw_text_rec(self.font, text, [x+10, y+10, width, height],
-                                     size, 10.0, True, BLACK)
-        self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+            pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+            pyray.draw_text_ex(self.font, text, [x+10, y+10], size, 1.0, BLACK)
+        pyray.draw_rectangle_lines(x, y, width, height, BLACK)
 
     def __character_position(self, byte_array, grid_pos, width=40):
         """
@@ -275,26 +268,23 @@ class Input:
         height = 40
 
         if grid_pos == self.cursor_pos:
-            self.pyray.draw_rectangle_rec([x, y, width, height], GRAY)
-            self.pyray.draw_text_rec(self.font, byte_array, [x+10, y+10, width, height],
-                                     28, 10.0, True, WHITE)
+            pyray.draw_rectangle_rec([x, y, width, height], GRAY)
+            pyray.draw_text_ex(self.font, byte_array, [x+10, y+10], 28, 1.0, WHITE)
         else:
-            self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-            self.pyray.draw_text_rec(self.font, byte_array, [x+10, y+10, width, height],
-                                     28, 10.0, True, BLACK)
-        self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+            pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+            pyray.draw_text_ex(self.font, byte_array, [x+10, y+10], 28, 1.0, BLACK)
+        pyray.draw_rectangle_lines(x, y, width, height, BLACK)
 
 def main():
     """
     When run as main program, create Menu object and run main function
     """
-    pyray = PyRay()
     pyray.init_window(240, 240, "Menu Test")
     pyray.set_target_fps(30)
     pyray.hide_cursor()
 
     font = pyray.load_font("fonts/Roboto-Black.ttf")
-    inp = Input(pyray, font)
+    inp = Input(font)
 
     while True:
         string = inp.get_string()
