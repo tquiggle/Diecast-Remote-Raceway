@@ -1,5 +1,30 @@
 #! /usr/bin/bash
 
+# This script configures a Raspberry Pi to use the Waveshare 1.3" LCD HAT
+# It has been tested on Bullseye and Bookworm. Running on any other version
+# will fail.
+
+# Check if the Effective User ID (EUID) is not root (0)
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root. Please use"
+    echo "  sudo $0"
+    exit 1
+fi
+
+os_version=`grep CODENAME /etc/os-release | sed 's/.*=//'`
+echo "os_version=$os_version"
+
+if [ "$os_version" == "bullseye" ]; then
+  CMDLINE=/boot/cmdline.txt
+  CONFIG=/boot/config.txt
+elif [ "$os_version" == "bookworm" ]; then
+  CMDLINE=/boot/firmware/cmdline.txt
+  CONFIG=/boot/firmware/config.txt
+else
+  echo "Unsupported Raspberry Pi OS version $os_version"
+  exit -1
+fi
+
 cd /tmp
 
 cat > waveshare-1_3-LCD-HAT.txt << __EOF__
@@ -8,49 +33,49 @@ cat > waveshare-1_3-LCD-HAT.txt << __EOF__
 #    https://forums.raspberrypi.com/viewtopic.php?t=337019
 #
 # for configuring a Waveshare 2.0 inch display. The original Waveshare
-# Wiki instructions for the 1.3" display HAT had a slightly different 
+# Wiki instructions for the 1.3" display HAT had a slightly different
 # initialization sequence. I merged the differences to preserve the
 # values from the 1.3" HAT Wiki where they differed.
-# 
+#
 # Compile and install via:
 #
-#  ./mipi-dbi-cmd.txt waveshare-1_3-LCD-HAT.bin waveshare-1_3-LCD-HAT.txt 
+#  ./mipi-dbi-cmd.txt waveshare-1_3-LCD-HAT.bin waveshare-1_3-LCD-HAT.txt
 #  sudo cp waveshare-1_3-LCD-HAT.bin /lib/firmware/
 
-command 0x11				# 0x1000011
-delay 255				# 0x20000ff
+command 0x11                            # 0x1000011
+delay 255                               # 0x20000ff
 
 # the fbtft driver overwrites this in set_var(), need to pick the value from the driver
 # 0x1000036 0xA0
 
 # dts has rotate=90 + bgr: driver converts to:  MADCTL_BGR | MADCTL_MV | MADCTL_MY
-#tjq command 0x36 0xA8			# MADCTL MY | MV | RGB
-command 0x36 0x78			# MADCTL MX | MV | ML | RGB
+#tjq command 0x36 0xA8                  # MADCTL MY | MV | RGB
+command 0x36 0x78                       # MADCTL MX | MV | ML | RGB
 
-command 0x3a 0x05			# 0x100003a 0x05
-command 0x21 				# 0x1000021 
-command 0x2a 0x00 0x01 0x00 0x3f	# 0x100002a 0x00 0x01 0x00 0x3f
-command 0x2b 0x00 0x00 0x00 0xef	# 0x100002b 0x00 0x00 0x00 0xef
-command 0xb2 0x0c 0x0c 0x00 0x33 0x33	# 0x10000b2 0x0c 0x0c 0x00 0x33 0x33
-command 0xb7 0x35			# 0x10000b7 0x35
-#tjq command 0xbb 0x1f			# 0x10000bb 0x1f # Set VCOM to 0.875V
-command 0xbb 0x1a			# 0x10000bb 0x1a # Set VCOM to 0.75V
-command 0xc0 0x0c			# 0x10000c0 0x0c
-command 0xc2 0x01			# 0x10000c2 0x01
-#tjq command 0xc3 0x12			# 0x10000c3 0x12 # VRHS 4.45V + ...
-command 0xc3 0x0b			# 0x10000c3 0x0b # VRHS 4.1V + ...
-command 0xc4 0x20			# 0x10000c4 0x20
-command 0xc6 0x0f			# 0x10000c6 0x0f
-command 0xd0 0xa4 0xa1			# 0x10000d0 0xa4 0xa1
-#tjq command 0xe0 0xd0 0x08 0x11 0x08 0x0C 0x15 0x39 0x33 0x50 0x36 0x13 0x14 0x29 0x2d	# 0x10000e0 [...]
-#tjq command 0xe1 0xd0 0x08 0x10 0x08 0x06 0x06 0x39 0x44 0x51 0x0b 0x16 0x14 0x2f 0x31	# 0x10000e1 [...]
+command 0x3a 0x05                       # 0x100003a 0x05
+command 0x21                            # 0x1000021
+command 0x2a 0x00 0x01 0x00 0x3f        # 0x100002a 0x00 0x01 0x00 0x3f
+command 0x2b 0x00 0x00 0x00 0xef        # 0x100002b 0x00 0x00 0x00 0xef
+command 0xb2 0x0c 0x0c 0x00 0x33 0x33   # 0x10000b2 0x0c 0x0c 0x00 0x33 0x33
+command 0xb7 0x35                       # 0x10000b7 0x35
+#tjq command 0xbb 0x1f                  # 0x10000bb 0x1f # Set VCOM to 0.875V
+command 0xbb 0x1a                       # 0x10000bb 0x1a # Set VCOM to 0.75V
+command 0xc0 0x0c                       # 0x10000c0 0x0c
+command 0xc2 0x01                       # 0x10000c2 0x01
+#tjq command 0xc3 0x12                  # 0x10000c3 0x12 # VRHS 4.45V + ...
+command 0xc3 0x0b                       # 0x10000c3 0x0b # VRHS 4.1V + ...
+command 0xc4 0x20                       # 0x10000c4 0x20
+command 0xc6 0x0f                       # 0x10000c6 0x0f
+command 0xd0 0xa4 0xa1                  # 0x10000d0 0xa4 0xa1
+#tjq command 0xe0 0xd0 0x08 0x11 0x08 0x0C 0x15 0x39 0x33 0x50 0x36 0x13 0x14 0x29 0x2d # 0x10000e0 [...]
+#tjq command 0xe1 0xd0 0x08 0x10 0x08 0x06 0x06 0x39 0x44 0x51 0x0b 0x16 0x14 0x2f 0x31 # 0x10000e1 [...]
 command 0xE0 0x00 0x19 0x1E 0x0A 0x09 0x15 0x3D 0x44 0x51 0x12 0x03 0x00 0x3F 0x3F # Set Positive Voltage Gamma Control
 command 0xE1 0x00 0x18 0x1E 0x0A 0x09 0x25 0x3F 0x43 0x52 0x33 0x03 0x00 0x3F 0x3F # Set Negative Voltage Gamma Control
-command 0x29				# 0x1000029
+command 0x29                            # 0x1000029
 __EOF__
 
 #
-# notro maintains a github repository (https://github.com/notro/panel-mipi-dbi) containing a Python program 
+# notro maintains a github repository (https://github.com/notro/panel-mipi-dbi) containing a Python program
 # originally written by Noralf Trønnes to convert the above text representation of an initialization sequence
 # into a binary file suitable for loading by the kernel. Since Noralf Trønnes explicitly released the program
 # to the public domain, I simply include a copy here rather than require separate download.
@@ -203,23 +228,24 @@ if __name__ == '__main__':
 __EOF__
 
 chmod +x ./mipi-dbi-cmd
-./mipi-dbi-cmd waveshare-1_3-LCD-HAT.bin waveshare-1_3-LCD-HAT.txt 
+./mipi-dbi-cmd waveshare-1_3-LCD-HAT.bin waveshare-1_3-LCD-HAT.txt
+echo "copying waveshare-1_3-LCD-HAT.bin to /lib/firmware/"
 cp waveshare-1_3-LCD-HAT.bin /lib/firmware/
 
-if ! grep -q 'fbcon=map:10 fbcon=font:VGA8x8' /boot/firmware/cmdline.txt; then
-   echo "Setting up console output on boot"
-   sed -i 's!rootwait!rootwait fbcon=map:10 fbcon=font:VGA8x8!g' /boot/firmware/cmdline.txt
+if ! grep -q 'fbcon=map:10 fbcon=font:VGA8x8' $CMDLINE; then
+  echo "Setting up console output on boot"
+  sed -i 's!rootwait!rootwait fbcon=map:10 fbcon=font:VGA8x8!g' $CMDLINE
 fi
 
-echo "Configuring /boot/firmware/config.txt"
+echo "Configuring $CONFIG"
 
 raspi-config nonint do_spi 0
-sed -i s/^dtoverlay=vc4-kms-v3d/#dtoverlay=vc4-kms-v3d/g /boot/firmware/config.txt
-sed -i s/^max_framebuffers=2/#max_framebuffers=2/g /boot/firmware/config.txt
+sed -i s/^dtoverlay=vc4-kms-v3d/#dtoverlay=vc4-kms-v3d/g $CONFIG
+sed -i s/^max_framebuffers=2/#max_framebuffers=2/g $CONFIG
 
-if ! grep -q '# Configure Waveshare 1.3" LCD HAT display' /boot/firmware/config.txt; then
+if ! grep -q '# Configure Waveshare 1.3" LCD HAT display' $CONFIG; then
 
-  cat >> /boot/firmware/config.txt << __EOF__
+  cat >> $CONFIG << __EOF__
 [all]
 # Configure Waveshare 1.3" LCD HAT display
 dtoverlay=mipi-dbi-spi,spi0-0,speed=80000000
