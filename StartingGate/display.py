@@ -28,8 +28,8 @@ import random
 import threading
 import time
 
-from raylib.pyray import PyRay
-from raylib.colors import WHITE, RAYWHITE, GRAY, BLACK, ORANGE
+import pyray
+from pyray import WHITE, RAYWHITE, GRAY, BLACK, ORANGE
 
 from config import CAR1, CAR2, CAR3, CAR4, Config, NOT_FINISHED #pylint: disable=unused-import
 from deviceio import car_1_present, car_2_present
@@ -186,54 +186,54 @@ class Display(threading.Thread):
             y_starting_offset = 10
 
         # Load the background image
-        background_image = self.pyray.load_image("images/raceoff-2.png")
-        self.background_texture = self.pyray.load_texture_from_image(background_image)
-        self.pyray.unload_image(background_image)
+        background_image = pyray.load_image("images/raceoff-2.png")
+        self.background_texture = pyray.load_texture_from_image(background_image)
+        pyray.unload_image(background_image)
         self.y_starting_offset = y_starting_offset
 
-        checkerboard_image = self.pyray.load_image(
+        checkerboard_image = pyray.load_image(
             "images/checkerboard-{}.png".format(checkerboard_size))
-        question_image = self.pyray.load_image("cars/question-{}.png".format(car_icon_size))
+        question_image = pyray.load_image("cars/question-{}.png".format(car_icon_size))
 
-        first_image = self.pyray.load_image("images/1st-{}.png".format(banner_size))
-        second_image = self.pyray.load_image("images/2nd-{}.png".format(banner_size))
-        third_image = self.pyray.load_image("images/3rd-{}.png".format(banner_size))
-        fail_image = self.pyray.load_image("images/fail-{}.png".format(banner_size))
+        first_image = pyray.load_image("images/1st-{}.png".format(banner_size))
+        second_image = pyray.load_image("images/2nd-{}.png".format(banner_size))
+        third_image = pyray.load_image("images/3rd-{}.png".format(banner_size))
+        fail_image = pyray.load_image("images/fail-{}.png".format(banner_size))
 
         # Load textures into VRAM
-        self.checkerboard_texture = self.pyray.load_texture_from_image(checkerboard_image)
-        self.question_texture = self.pyray.load_texture_from_image(question_image)
+        self.checkerboard_texture = pyray.load_texture_from_image(checkerboard_image)
+        self.question_texture = pyray.load_texture_from_image(question_image)
 
-        first_texture = self.pyray.load_texture_from_image(first_image)
-        second_texture = self.pyray.load_texture_from_image(second_image)
-        third_texture = self.pyray.load_texture_from_image(third_image)
-        self.fail_texture = self.pyray.load_texture_from_image(fail_image)
+        first_texture = pyray.load_texture_from_image(first_image)
+        second_texture = pyray.load_texture_from_image(second_image)
+        third_texture = pyray.load_texture_from_image(third_image)
+        self.fail_texture = pyray.load_texture_from_image(fail_image)
 
         self.place_textures = [first_texture, second_texture, third_texture]
 
         # Load car textures for local track
         for car in range(self.config.num_lanes):
             icon = self.config.car_icons[car]
-            image = self.pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
-            self.local_textures[car] = self.pyray.load_texture_from_image(image)
-            self.pyray.unload_image(image)
+            image = pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
+            self.local_textures[car] = pyray.load_texture_from_image(image)
+            pyray.unload_image(image)
 
         if multi_track:
             # Load car textures for remote track
             for car in range(self.config.remote_num_lanes):
                 icon = self.config.remote_car_icons[car]
                 # TODO: Handle error condition where remote image isn't found locally
-                image = self.pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
-                self.remote_textures[car] = self.pyray.load_texture_from_image(image)
-                self.pyray.unload_image(image)
+                image = pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
+                self.remote_textures[car] = pyray.load_texture_from_image(image)
+                pyray.unload_image(image)
 
         # Unload image data from CPU memory
-        self.pyray.unload_image(checkerboard_image)
-        self.pyray.unload_image(question_image)
-        self.pyray.unload_image(first_image)
-        self.pyray.unload_image(second_image)
-        self.pyray.unload_image(third_image)
-        self.pyray.unload_image(fail_image)
+        pyray.unload_image(checkerboard_image)
+        pyray.unload_image(question_image)
+        pyray.unload_image(first_image)
+        pyray.unload_image(second_image)
+        pyray.unload_image(third_image)
+        pyray.unload_image(fail_image)
 
     def __new__(cls, val):
         """
@@ -248,7 +248,6 @@ class Display(threading.Thread):
         threading.Thread.__init__(self, daemon=True)
 
         self.config = config
-        self.pyray = PyRay()
 
         # Value between 0.0 and 1.0 used to determine how far each car moves down
         # the screen on each iteration of the display loop. See __race_started() below.
@@ -312,27 +311,27 @@ class Display(threading.Thread):
 
         Note, all pyray interactions must be done in this thread as it creates the GL context!
         """
-        self.pyray.init_window(240, 240, "Diecast Remote Raceway")
-        self.pyray.set_target_fps(30)
-        self.pyray.hide_cursor()
+        pyray.init_window(240, 240, "Diecast Remote Raceway")
+        pyray.set_target_fps(30)
+        pyray.hide_cursor()
 
-        self.font = self.pyray.load_font("fonts/Roboto-Black.ttf")
-        self.menu = Menu(self.pyray, self.font, self.config)
+        self.font = pyray.load_font("fonts/Roboto-Black.ttf")
+        self.menu = Menu(self.font, self.config)
 
-        while self.running and not self.pyray.window_should_close():
+        while self.running and not pyray.window_should_close():
             # Draw common background used for all displays
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
 
             if self.state != RaceState.WAIT_MENU:
                 # A common background is displayed for all race states after leaving the
                 # main menu.
-                self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+                pyray.draw_texture(self.background_texture, 0, 0, WHITE)
                 self.__draw_lanes()
 
             # Dispatch to appropriate drawing routine based on current race state
             self.dispatch[self.state]()
-            self.pyray.end_drawing()
+            pyray.end_drawing()
 
     def __reset_car_positions(self):
         for car in range(self.config.num_lanes):
@@ -342,23 +341,37 @@ class Display(threading.Thread):
                 self.remote_y[car] = self.y_starting_offset
 
     def __text_box_dense(self, text, x, y, width, height, size):
-        self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-        self.pyray.draw_text_rec(self.font, text, [x+2, y+2, width-2, height-2], size, 2,
-                                 True, BLACK)
+        pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+        #pyray.draw_text_rec(self.font, text, [x+2, y+2, width-2, height-2], size, 2,
+        #                         True, BLACK)
+        pyray.draw_text_ex(self.font, text, [x+2, y+2], size, 1.0, BLACK)
 
     def __text_box(self, text, x, y, width, height, size, inverted=False):
         """
         Draws a box at location (x,y) with width and height. Prints text with specified font size
         """
-        self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+        pyray.draw_rectangle_lines(x, y, width, height, BLACK)
         if inverted:
-            self.pyray.draw_rectangle_rec([x, y, width, height], GRAY)
-            self.pyray.draw_text_rec(self.font, text,
-                                     [x+10, y+2, width-10, height-2], size, 3.5, True, WHITE)
+            pyray.draw_rectangle_rec([x, y, width, height], GRAY)
+            pyray.draw_text_ex(self.font, text, [x+10, y+2], size, 1.0, WHITE)
         else:
-            self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-            self.pyray.draw_text_rec(self.font, text,
-                                     [x+10, y+2, width-10, height-2], size, 3.5, True, BLACK)
+            pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+            pyray.draw_text_ex(self.font, text, [x+10, y+2], size, 1.0, BLACK)
+
+    def __text_box2(self, text1, text2, x, y, width, height, size, inverted=False):
+        """
+        Draws a box at location (x,y) with width and height.
+        Prints two lines of text with specified font size.
+        """
+        pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+        if inverted:
+            pyray.draw_rectangle_rec([x, y, width, height], GRAY)
+            pyray.draw_text_ex(self.font, text1, [x+10, y+2], size, 1.0, WHITE)
+            pyray.draw_text_ex(self.font, text2, [x+10, y+2+height/2], size, 1.0, WHITE)
+        else:
+            pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+            pyray.draw_text_ex(self.font, text1, [x+10, y+2], size, 1.0, BLACK)
+            pyray.draw_text_ex(self.font, text2, [x+10, y+2+height/2], size, 1.0, BLACK)
 
     @staticmethod
     def __font_size(text):
@@ -375,7 +388,16 @@ class Display(threading.Thread):
     def __text_message(self, text, inverted=False):
         if len(text) >= 16:
             # Two line text box
-            self.__text_box(text, 10, 90, 215, 68, self.__font_size(text), inverted)
+            # Split text at first space before character 16
+            split_pos = 16
+            while split_pos > 0 and text[split_pos] != ' ' and text[split_pos] != '   ':
+                split_pos -= 1
+            if split_pos > 0:
+                self.__text_box2(text[:split_pos], text[split_pos+1:], 10, 90, 215, 68,
+                                 self.__font_size(text), inverted)
+            else:
+                #TODO: fix text box to do dynamic sizing to fit entire text within box
+                self.__text_box(text, 10, 90, 215, 68, self.__font_size(text), inverted)
         else:
             # One line textbox
             self.__text_box(text, 10, 90, 215, 40, self.__font_size(text), inverted)
@@ -383,38 +405,37 @@ class Display(threading.Thread):
 
     def __draw_lanes(self):
         if self.config.multi_track:
-            self.pyray.draw_text(self.config.track_name, 10, 10, 24, ORANGE)
-            self.pyray.draw_text(self.config.remote_track_name, 130, 10, 24, BLACK)
-            self.pyray.draw_line_ex([120, 5], [120, 235], 4.0, BLACK)
+            pyray.draw_text(self.config.track_name, 10, 10, 24, ORANGE)
+            pyray.draw_text(self.config.remote_track_name, 130, 10, 24, BLACK)
+            pyray.draw_line_ex([120, 5], [120, 235], 4.0, BLACK)
 
-            self.pyray.draw_line_ex([35, 40], [35, 230], 34.0, ORANGE)
-            self.pyray.draw_line_ex([80, 40], [80, 230], 34.0, ORANGE)
+            pyray.draw_line_ex([35, 40], [35, 230], 34.0, ORANGE)
+            pyray.draw_line_ex([80, 40], [80, 230], 34.0, ORANGE)
 
-            self.pyray.draw_texture(self.checkerboard_texture, 18, 196, WHITE)
-            self.pyray.draw_texture(self.checkerboard_texture, 63, 196, WHITE)
+            pyray.draw_texture(self.checkerboard_texture, 18, 196, WHITE)
+            pyray.draw_texture(self.checkerboard_texture, 63, 196, WHITE)
 
-            self.pyray.draw_line_ex([155, 40], [155, 230], 34.0, ORANGE)
-            self.pyray.draw_line_ex([200, 40], [200, 230], 34.0, ORANGE)
+            pyray.draw_line_ex([155, 40], [155, 230], 34.0, ORANGE)
+            pyray.draw_line_ex([200, 40], [200, 230], 34.0, ORANGE)
 
-            self.pyray.draw_texture(self.checkerboard_texture, 138, 196, WHITE)
-            self.pyray.draw_texture(self.checkerboard_texture, 183, 196, WHITE)
+            pyray.draw_texture(self.checkerboard_texture, 138, 196, WHITE)
+            pyray.draw_texture(self.checkerboard_texture, 183, 196, WHITE)
         else:
-            self.pyray.draw_line_ex([64, 10], [64, 230], 64.0, ORANGE)
-            self.pyray.draw_line_ex([164, 10], [164, 230], 64.0, ORANGE)
+            pyray.draw_line_ex([64, 10], [64, 230], 64.0, ORANGE)
+            pyray.draw_line_ex([164, 10], [164, 230], 64.0, ORANGE)
 
-            self.pyray.draw_texture(self.checkerboard_texture, 32, 166, WHITE)
-            self.pyray.draw_texture(self.checkerboard_texture, 132, 166, WHITE)
+            pyray.draw_texture(self.checkerboard_texture, 32, 166, WHITE)
+            pyray.draw_texture(self.checkerboard_texture, 132, 166, WHITE)
 
     def __draw_cars(self, texture1, texture2, texture3, texture4):
-        #pylint: disable=bad-whitespace
         if self.config.multi_track:
-            self.pyray.draw_texture(texture1,  22, self.local_y[CAR1],  WHITE)
-            self.pyray.draw_texture(texture2,  68, self.local_y[CAR2],  WHITE)
-            self.pyray.draw_texture(texture3, 142, self.remote_y[CAR1], WHITE)
-            self.pyray.draw_texture(texture4, 188, self.remote_y[CAR2], WHITE)
+            pyray.draw_texture(texture1,  22, self.local_y[CAR1],  WHITE)
+            pyray.draw_texture(texture2,  68, self.local_y[CAR2],  WHITE)
+            pyray.draw_texture(texture3, 142, self.remote_y[CAR1], WHITE)
+            pyray.draw_texture(texture4, 188, self.remote_y[CAR2], WHITE)
         else:
-            self.pyray.draw_texture(texture1,  40, self.local_y[CAR1],  WHITE)
-            self.pyray.draw_texture(texture2, 140, self.local_y[CAR2],  WHITE)
+            pyray.draw_texture(texture1,  40, self.local_y[CAR1],  WHITE)
+            pyray.draw_texture(texture2, 140, self.local_y[CAR2],  WHITE)
 
 
     def __draw_result(self, track_count, track_number, lane_number, lane_time, place):
@@ -442,7 +463,7 @@ class Display(threading.Thread):
             time_width = 46
 
         texture = self.fail_texture if lane_time == NOT_FINISHED else self.place_textures[place]
-        self.pyray.draw_texture(texture, x_offset, y_offset, WHITE)
+        pyray.draw_texture(texture, x_offset, y_offset, WHITE)
 
         if lane_time == NOT_FINISHED:
             display_time = "FAIL"
@@ -479,9 +500,9 @@ class Display(threading.Thread):
         for car in range(self.config.remote_num_lanes):
             icon = self.config.remote_car_icons[car]
             self.local_y[car] = 40
-            image = self.pyray.load_image("cars/{}-{}.png".format(icon, 24))
-            self.remote_textures[car] = self.pyray.load_texture_from_image(image)
-            self.pyray.unload_image(image)
+            image = pyray.load_image("cars/{}-{}.png".format(icon, 24))
+            self.remote_textures[car] = pyray.load_texture_from_image(image)
+            pyray.unload_image(image)
         self.remote_icons_loaded = True
         self.registration_event.set()
 

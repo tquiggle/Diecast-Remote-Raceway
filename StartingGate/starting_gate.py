@@ -127,6 +127,15 @@ def all_lanes_empty(config):
         return LANE1.value + LANE2.value + LANE3.value + LANE4.value == 0
     return 0 # Dead code, but makes pylint happy
 
+def wait_for_car_in_lane(config):
+    """ Wait for at least one car to be placed in a lane """
+    global race_aborted #pylint: disable=global-statement,global-variable-not-assigned
+    while all_lanes_empty(config):
+        if race_aborted:
+            return
+        time.sleep(0.1)
+
+
 def all_lanes_ready(config):
     """ Scan the lane sensors to see if all lanes have cars present. """
 
@@ -141,6 +150,28 @@ def all_lanes_ready(config):
     if num_lanes == 4:
         return LANE1.value + LANE2.value + LANE4.value == 4
     return 0 # Dead code, but makes pylint happy
+
+def calculate_results(config, coordinator, finish_times):
+    """ Create results dictionary sorted by finish time. """
+    num_lanes = config.num_lanes
+    results = []
+
+    for lane in range(num_lanes):
+        result = {}
+        result["trackName"] = config.track_name
+        result["laneNumber"] = lane + 1
+        result["laneTime"] = finish_times[lane]
+        results.append(result)
+
+    results.sort(key=operator.itemgetter('laneTime'))
+
+    # Send local results to race coordinator and await global results
+    if config.multi_track:
+        results_string = coordinator.results(results)
+        results = json.loads(results_string)
+
+    return results
+
 
 def purge_bluetooth_messages(socket):
     """ Read any residual data from the Finish Line bluetooth connection.
@@ -182,7 +213,7 @@ def run_race(config, coordinator, display, socket, poller):
         poller      Polling object bound to socket to test for READ ready
     """
 
-    global race_aborted #pylint: disable=global-statement
+    global race_aborted #pylint: disable=global-statement,global-variable-not-assigned
     num_lanes = config.num_lanes
     finish_times = [NOT_FINISHED, NOT_FINISHED, NOT_FINISHED, NOT_FINISHED]
 
@@ -272,7 +303,6 @@ def run_race(config, coordinator, display, socket, poller):
                 print("purge_bluetooth_messages(): BluetoothError, other reason =", exc.args)
                 raise exc
 
-
     # Send end of race message to Finish Line to disable further completion messages
     socket.send("ENDR")
 
@@ -280,37 +310,21 @@ def run_race(config, coordinator, display, socket, poller):
         return
 
     print("Race finished")
-    results = []
-    for lane in range(num_lanes):
-        result = {}
-        result["trackName"] = config.track_name
-        result["laneNumber"] = lane + 1
-        result["laneTime"] = finish_times[lane]
-        results.append(result)
-
-    results.sort(key=operator.itemgetter('laneTime'))
-
-    # Send local results to race coordinator and await global results
-    if config.multi_track:
-        results_string = coordinator.results(results)
-        results = json.loads(results_string)
+    results = calculate_results(config, coordinator, finish_times)
 
     reset_starting_gate(config)
     display.race_finished(results)
 
     # Placing a car on a lane terminates the results display and exits the race
-
-    while all_lanes_empty(config):
-        if race_aborted:
-            return
-        time.sleep(0.1)
+    wait_for_car_in_lane(config)
 
 def main():
     """
     Configure starting_gate and run races
     """
 
-    config = Config("/home/pi/config/starting_gate.json")
+    #config = Config("/home/pi/config/starting_gate.json")
+    config = Config("config/starting_gate.json")
     display = Display(config)
     device = DeviceIO()
     coordinator = Coordinator(config)

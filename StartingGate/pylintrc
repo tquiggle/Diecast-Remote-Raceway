@@ -1,6 +1,6 @@
 
 [TYPECHECK]
-generated-members=raylib.pyray.PyRay.*,Config.*
+generated-members=pyray.*,Config.*
 ignored-classes=Config
 good-names=x,y
 
@@ -11,3 +11,6 @@ disable=too-few-public-methods,
         too-many-arguments,
         unspecified-encoding,
         consider-using-f-string
+
+[DESIGN]
+max-statements=60

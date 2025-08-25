@@ -83,8 +83,8 @@ import enum
 import glob
 import time
 
-from raylib.pyray import PyRay
-from raylib.colors import BLACK, LIGHTGRAY, ORANGE, RAYWHITE, WHITE
+import pyray
+from pyray import BLACK, LIGHTGRAY, ORANGE, RAYWHITE, WHITE
 
 from deviceio import DeviceIO, JOYU, JOYD, JOYL, JOYR, JOYP, SERVO
 from input import Input, MODE_SPECIAL
@@ -367,29 +367,28 @@ class Menu:
         print("process_menus: self=", self)
         self.race_type = None
         self.device.push_key_handlers(self.__key1, self.__key2, self.__key3, self.__joystick)
-        while (not self.pyray.window_should_close()) and (self.race_type is None):
+        while (not pyray.window_should_close()) and (self.race_type is None):
             if self.cursor_pos != self.last_cursor_pos:
                 print("self.cursor_pos=", self.cursor_pos,
                       ", self.config_window_top=", self.config_window_top,
                       ", self.config_window_bottom=", self.config_window_bottom)
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
-            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.last_cursor_pos = self.cursor_pos
             FUNCTION[self.cursor_pos]()
-            self.pyray.end_drawing()
+            pyray.end_drawing()
         self.device.pop_key_handlers()
         if self.config_updated:
             self.config.save()
 
 # PRIVATE
 
-    def __init__(self, pyray, font, config):
-        self.pyray = pyray
+    def __init__(self, font, config):
         self.font = font
         self.config = config
 
-        self.input = Input(self.pyray, self.font)
+        self.input = Input(self.font)
         self.device = DeviceIO()
         self.race_type = None
 
@@ -421,22 +420,22 @@ class Menu:
         self.car_textures = []
         self.car_icon_selected = None
 
-        background_image = self.pyray.load_image("images/background.png")
+        background_image = pyray.load_image("images/background.png")
 
-        self.background_texture = self.pyray.load_texture_from_image(background_image)
-        self.pyray.unload_image(background_image)
+        self.background_texture = pyray.load_texture_from_image(background_image)
+        pyray.unload_image(background_image)
 
-        single_track_image = self.pyray.load_image("images/Single-Track.png")
-        self.single_track_texture = self.pyray.load_texture_from_image(single_track_image)
-        self.pyray.unload_image(single_track_image)
+        single_track_image = pyray.load_image("images/Single-Track.png")
+        self.single_track_texture = pyray.load_texture_from_image(single_track_image)
+        pyray.unload_image(single_track_image)
 
-        multi_track_image = self.pyray.load_image("images/Multi-Track.png")
-        self.multi_track_texture = self.pyray.load_texture_from_image(multi_track_image)
-        self.pyray.unload_image(multi_track_image)
+        multi_track_image = pyray.load_image("images/Multi-Track.png")
+        self.multi_track_texture = pyray.load_texture_from_image(multi_track_image)
+        pyray.unload_image(multi_track_image)
 
-        configure_image = self.pyray.load_image("images/Configure.png")
-        self.configure_texture = self.pyray.load_texture_from_image(configure_image)
-        self.pyray.unload_image(configure_image)
+        configure_image = pyray.load_image("images/Configure.png")
+        self.configure_texture = pyray.load_texture_from_image(configure_image)
+        pyray.unload_image(configure_image)
 
     def __init_function_pointers(self):
         """
@@ -488,13 +487,12 @@ class Menu:
         """
         Display the top level menu with three choices
         """
-        #pylint: disable=bad-whitespace
-        self.pyray.draw_texture(self.single_track_texture, 10,  45, WHITE)
+        pyray.draw_texture(self.single_track_texture, 10,  45, WHITE)
         if self.config.allow_multi_track:
-            self.pyray.draw_texture(self.multi_track_texture,  10, 100, WHITE)
+            pyray.draw_texture(self.multi_track_texture,  10, 100, WHITE)
         else:
-            self.pyray.draw_texture(self.multi_track_texture,  10, 100, LIGHTGRAY)
-        self.pyray.draw_texture(self.configure_texture,    10, 155, WHITE)
+            pyray.draw_texture(self.multi_track_texture,  10, 100, LIGHTGRAY)
+        pyray.draw_texture(self.configure_texture,    10, 155, WHITE)
 
     def __config_menu(self):
         """
@@ -520,7 +518,6 @@ class Menu:
         Display menu to select car icons
         """
 
-        #pylint: disable=bad-whitespace
         self.__menu_line(MenuState.CAR_1_ICON, 10,  16, 210, 40, 28)
         if self.config.num_lanes > 1:
             self.__menu_line(MenuState.CAR_2_ICON, 10,  72, 210, 40, 28)
@@ -534,7 +531,6 @@ class Menu:
         Display menu to set WiFi SSID and Password
         """
 
-        #pylint: disable=bad-whitespace
         self.__text_box("WiFi:",    00,   0, 210, 40, 28)
         self.__text_box("SSID",     10,  53, 210, 40, 28, self.cursor_pos == MenuState.WIFI_SSID)
         self.__text_box("Password", 10, 146, 210, 40, 28, self.cursor_pos == MenuState.WIFI_PSWD)
@@ -544,7 +540,6 @@ class Menu:
         Display menu to configure controler hostname and port
         """
 
-        #pylint: disable=bad-whitespace
         self.__text_box("Coordinator:",  0,   0, 210, 40, 28)
         self.__text_box("Hostname",     10,  53, 210, 40, 28,
                         self.cursor_pos == MenuState.COORD_HOSTNAME)
@@ -559,10 +554,10 @@ class Menu:
             icon_name = car_filename[5:-7]
             if icon_name == "question":
                 continue
-            car_image = self.pyray.load_image(car_filename)
-            car_texture = self.pyray.load_texture_from_image(car_image)
+            car_image = pyray.load_image(car_filename)
+            car_texture = pyray.load_texture_from_image(car_image)
             self.car_textures.append((icon_name, car_texture))
-            self.pyray.unload_image(car_image)
+            pyray.unload_image(car_image)
         self.car_icons_loaded = True
 
     def __enter_car_icon(self, car):
@@ -579,12 +574,12 @@ class Menu:
 
         while not self.car_icon_selected:
             car_icon, car_texture = self.car_textures[self.car_icon_index]
-            self.pyray.begin_drawing()
-            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
-            self.pyray.draw_line_ex([120, 10], [120, 230], 64.0, ORANGE)
+            pyray.begin_drawing()
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            pyray.draw_line_ex([120, 10], [120, 230], 64.0, ORANGE)
             self.__text_box(car_icon, 10, 16, 210, 40, 24)
-            self.pyray.draw_texture(car_texture, 96, 90, WHITE)
-            self.pyray.end_drawing()
+            pyray.draw_texture(car_texture, 96, 90, WHITE)
+            pyray.end_drawing()
 
         if self.config.car_icons[car] != car_icon:
             self.config.car_icons[car] = car_icon
@@ -653,16 +648,15 @@ class Menu:
         self.device.push_key_handlers(self.__key_noop, self.__key_noop, self.__key_noop,
                                       self.__joystick_enter_num_lanes)
         while not self.num_lanes_selected:
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
-            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.__text_box(TEXT[MenuState.RACE_TIMEOUT], 0, 0, 240, 40, 28)
-            #pylint: disable=bad-whitespace
             self.__text_box("1",  16, 80, 40, 40, 30, self.num_lanes_pos == 1)
             self.__text_box("2",  72, 80, 40, 40, 30, self.num_lanes_pos == 2)
             self.__text_box("3", 128, 80, 40, 40, 30, self.num_lanes_pos == 3)
             self.__text_box("4", 184, 80, 40, 40, 30, self.num_lanes_pos == 4)
-            self.pyray.end_drawing()
+            pyray.end_drawing()
 
         self.device.pop_key_handlers()
         self.cursor_pos = MenuState.NUM_LANES
@@ -679,15 +673,15 @@ class Menu:
                                       self.__joystick_enter_race_timeout)
         self.race_timeout_updated = False
         original_timeout = self.config.race_timeout
-        self.pyray.end_drawing()
+        pyray.end_drawing()
         while not self.race_timeout_updated:
             value = "%4.2f" % self.config.race_timeout
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
-            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.__text_box(TEXT[MenuState.RACE_TIMEOUT], 00, 0, 240, 40, 28)
             self.__text_box(value, 10, 53, 210, 40, 28, False)
-            self.pyray.end_drawing()
+            pyray.end_drawing()
 
         self.device.pop_key_handlers()
         self.cursor_pos = MenuState.RACE_TIMEOUT
@@ -736,16 +730,16 @@ class Menu:
                                       self.__joystick_enter_servo_down)
         self.servo_down_value_updated = False
         original_down_value = self.config.servo_down_value
-        self.pyray.end_drawing()
+        pyray.end_drawing()
         while not self.servo_down_value_updated:
             SERVO.value = self.config.servo_down_value
             value = "%4.2f" % self.config.servo_down_value
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
-            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.__text_box(TEXT[MenuState.SERVO_DOWN_VALUE], 00, 0, 240, 40, 28)
             self.__text_box(value, 10, 53, 210, 40, 28, False)
-            self.pyray.end_drawing()
+            pyray.end_drawing()
 
         self.device.pop_key_handlers()
         self.cursor_pos = MenuState.SERVO_DOWN_VALUE
@@ -761,16 +755,16 @@ class Menu:
                                       self.__joystick_enter_servo_up)
         self.servo_up_value_updated = False
         original_up_value = self.config.servo_up_value
-        self.pyray.end_drawing()
+        pyray.end_drawing()
         while not self.servo_up_value_updated:
             SERVO.value = self.config.servo_up_value
             value = "%4.2f" % self.config.servo_up_value
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
-            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.__text_box(TEXT[MenuState.SERVO_UP_VALUE], 00, 0, 240, 40, 28)
             self.__text_box(value, 10, 53, 210, 40, 28, False)
-            self.pyray.end_drawing()
+            pyray.end_drawing()
 
         self.device.pop_key_handlers()
         self.cursor_pos = MenuState.SERVO_UP_VALUE
@@ -950,12 +944,13 @@ class Menu:
         If gray=True, set the box fill color to gray and the text color to white
         """
         if gray:
-            self.pyray.draw_rectangle_rec([x, y, width, height], LIGHTGRAY)
+            pyray.draw_rectangle_rec([x, y, width, height], LIGHTGRAY)
         else:
-            self.pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-        self.pyray.draw_rectangle_lines(x, y, width, height, BLACK)
-        self.pyray.draw_text_rec(self.font, text, [x+10, y+5, width-10, height-5],
-                                 size, 5.0, True, BLACK)
+            pyray.draw_rectangle_rec([x, y, width, height], WHITE)
+        pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+        #pyray.draw_text_rec(self.font, text, [x+10, y+5, width-10, height-5],
+        #                         size, 5.0, True, BLACK)
+        pyray.draw_text_ex(self.font, text, [x+10, y+5], size, 1.0, BLACK)
 
     def __menu_line(self, state, x, y, width, height, size):
         """
@@ -966,27 +961,25 @@ class Menu:
     def __display_setting(self, config, value):
         display_start = time.monotonic()
         while time.monotonic() - display_start < 1.0:
-            self.pyray.begin_drawing()
-            self.pyray.clear_background(RAYWHITE)
-            self.pyray.draw_texture(self.background_texture, 0, 0, WHITE)
-            #pylint: disable=bad-whitespace
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.__text_box(config, 00,   0, 240, 40, 28)
             self.__text_box(value,  10,  53, 210, 40, 28)
-            self.pyray.end_drawing()
+            pyray.end_drawing()
 
 def main():
     """
     When run as main program, create Menu object and run main function
     """
-    main_pyray = PyRay()
     main_config = Config("./config/starting_gate.json")
 
-    main_pyray.init_window(240, 240, "Menu Test")
-    main_pyray.set_target_fps(30)
-    main_pyray.hide_cursor()
+    pyray.init_window(240, 240, "Menu Test")
+    pyray.set_target_fps(30)
+    pyray.hide_cursor()
 
-    main_font = main_pyray.load_font("fonts/Roboto-Black.ttf")
-    menu = Menu(main_pyray, main_font, main_config)
+    main_font = pyray.load_font("fonts/Roboto-Black.ttf")
+    menu = Menu(main_font, main_config)
     menu.process_menus()
 
 if __name__ == '__main__':
