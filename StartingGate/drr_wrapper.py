@@ -20,9 +20,17 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 
 import os
 import subprocess
+import sys
 import urllib.request
 
 from config import Config
+
+command = sys.argv[0]
+trailing_slash = command.rfind('/')
+if trailing_slash != -1:
+    dir = command[:trailing_slash]
+    print(f"changing current working directory to {dir}")
+    os.chdir(dir)
 
 DRR_CONFIG = Config("config/starting_gate.json")
 
@@ -90,7 +98,7 @@ def run_starting_gate():
     """
     Execute the Starting Gate program and wait for it to complete
     """
-    result = subprocess.run(["/home/pi/starting_gate.py"], check=False)
+    result = subprocess.run(["./starting_gate.py"], check=False)
     print ("process returned = ", result.returncode)
 
 while True:
