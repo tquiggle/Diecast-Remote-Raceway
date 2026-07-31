@@ -1,8 +1,11 @@
 #! /usr/bin/bash
 
 # This script configures a Raspberry Pi to use the Waveshare 1.3" LCD HAT
-# It has been tested on Bullseye and Bookworm. Running on any other version
-# will fail.
+#
+#    https://www.waveshare.com/1.3inch-lcd-hat.htm
+#
+# It has been tested on Bullseye, Bookworm and Trixie.
+# Running on releases older than Bullseye will fail
 
 # Check if the Effective User ID (EUID) is not root (0)
 if [[ $EUID -ne 0 ]]; then
@@ -11,18 +14,21 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-os_version=`grep CODENAME /etc/os-release | sed 's/.*=//'`
-echo "os_version=$os_version"
+VERSION_INT=$(sed -n 's/^VERSION_ID=["\x27]\?\([0-9]\+\).*/\1/p' /etc/os-release)
+echo "Running OS release $VERSION_INT"
 
-if [ "$os_version" == "bullseye" ]; then
+if (( $VERSION_INT < 11 )); then
+  # Releases earlier than Bullseye (11) lack support for device tree
+  echo "Unsupported Raspberry Pi OS version $VERSION_INT"
+  exit -1
+elif (( $VERSION_INT == 11 )); then
+  # Use Bullseye (11) config files
   CMDLINE=/boot/cmdline.txt
   CONFIG=/boot/config.txt
-elif [ "$os_version" == "bookworm" ]; then
+else 
+  # Starting with Bookworm (12) the user editable config was moved to /boot/firmware
   CMDLINE=/boot/firmware/cmdline.txt
   CONFIG=/boot/firmware/config.txt
-else
-  echo "Unsupported Raspberry Pi OS version $os_version"
-  exit -1
 fi
 
 cd /tmp
