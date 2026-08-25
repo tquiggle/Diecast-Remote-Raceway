@@ -28,22 +28,22 @@ Device.pin_factory = PiGPIOFactory()
 # layout MUCH more readable than the pythonic spacing.
 #
 
-JOYU =  Button(pin="GPIO6",  bounce_time=0.020)                    # Pin 31
-JOYD =  Button(pin="GPIO19", bounce_time=0.020)                    # Pin 35
-JOYL =  Button(pin="GPIO5",  bounce_time=0.020)                    # Pin 29
-JOYR =  Button(pin="GPIO26", bounce_time=0.020)                    # Pin 37
-JOYP =  Button(pin="GPIO13", bounce_time=0.020)                    # Pin 33
+JOYU =  Button(pin="GPIO6",  bounce_time=0.020)                           # Pin 31
+JOYD =  Button(pin="GPIO19", bounce_time=0.020)                           # Pin 35
+JOYL =  Button(pin="GPIO5",  bounce_time=0.020)                           # Pin 29
+JOYR =  Button(pin="GPIO26", bounce_time=0.020)                           # Pin 37
+JOYP =  Button(pin="GPIO13", bounce_time=0.020)                           # Pin 33
 
-KEY_1 = Button(pin="GPIO21", bounce_time=0.100)                    # Pin 40
-KEY_2 = Button(pin="GPIO20", bounce_time=0.100)                    # Pin 38
-KEY_3 = Button(pin="GPIO16", bounce_time=0.100)                    # Pin 36
+KEY_1 = Button(pin="GPIO21", bounce_time=0.100)                           # Pin 40
+KEY_2 = Button(pin="GPIO20", bounce_time=0.100)                           # Pin 38
+KEY_3 = Button(pin="GPIO16", bounce_time=0.100)                           # Pin 36
 
-LANE1 = DigitalInputDevice(pin="GPIO7",  bounce_time=0.200)        # Pin 26
-LANE2 = DigitalInputDevice(pin="GPIO23", bounce_time=0.200)        # Pin 16
-LANE3 = DigitalInputDevice(pin="GPIO22", bounce_time=0.200)        # Pin 15
-LANE4 = DigitalInputDevice(pin="GPIO4",  bounce_time=0.200)        # Pin 07
+LANE1 = DigitalInputDevice(pin="GPIO7",  pull_up=True, bounce_time=0.200) # Pin 26
+LANE2 = DigitalInputDevice(pin="GPIO23", pull_up=True, bounce_time=0.200) # Pin 16
+LANE3 = DigitalInputDevice(pin="GPIO22", pull_up=True, bounce_time=0.200) # Pin 15
+LANE4 = DigitalInputDevice(pin="GPIO4",  pull_up=True, bounce_time=0.200) # Pin 07
 
-SERVO = Servo("GPIO12")                                            # Pin 32
+SERVO = Servo("GPIO12")                                                   # Pin 32
 
 def car_1_present():
     """

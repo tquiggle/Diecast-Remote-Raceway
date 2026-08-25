@@ -54,14 +54,13 @@ CAR_ICONS = "car_icons"                 # Car icons for each lane
 CIRCUIT = "circuit"                     # Name of the circuit we are racing in, if any
 COORDINATOR_HOSTNAME = "coord_host"     # Hostname of the race coordinator server
 COORDINATOR_PORT = "coord_port"         # Port the race coordinator server is running on
+DISTRIBUTION_URL = "distribution_url"   # URL for repository containing DRR releases
 FINISH_LINE_NAME = "finish_line_name"   # Bluetooth advertisement of our finish line
 NUM_LANES = "num_lanes"                 # Number of lanes in the local track (1..4)
 RACE_TIMEOUT = "race_timeout"           # Timeout, in seconds, to declare a race over
 SERVO_DOWN_VALUE = "servo_down_value"   # Numeric value for Servo for gate in down position
 SERVO_UP_VALUE = "servo_up_value"       # Numeric value for Servo for gate in up position
 TRACK_NAME = "track_name"               # Name of the local track
-WIFI_PSWD = "wifi_pswd"                 # WiFi Password
-WIFI_SSID = "wifi_ssid"                 # WiFi SSID
 
 # Ephemeral configuration variable names
 ALLOW_MULTI_TRACK = "allow_multi_track" # Allow multi-track races
@@ -70,26 +69,29 @@ MULTI_TRACK = "multi_track"             # Tracks in the current racing session, 
 REMOTE_TRACK_NAME = "remote_track_name" # Name of the remote track we are racing against
 REMOTE_NUM_LANES = "remote_num_lanes"   # Number of lanes in the track we are racing against
 REMOTE_CAR_ICONS = "remote_car_icons"   # Car icons to use for remote lanes
+WIFI_PSWD = "wifi_pswd"                 # WiFi Password
+WIFI_SSID = "wifi_ssid"                 # WiFi SSID
 
 PERSISTED_CONFIGS = [CAR_ICONS,
                      CIRCUIT,
                      COORDINATOR_HOSTNAME,
                      COORDINATOR_PORT,
+                     DISTRIBUTION_URL,
                      FINISH_LINE_NAME,
                      NUM_LANES,
                      RACE_TIMEOUT,
                      SERVO_DOWN_VALUE,
                      SERVO_UP_VALUE,
-                     TRACK_NAME,
-                     WIFI_PSWD,
-                     WIFI_SSID]
+                     TRACK_NAME]
 
 EPHEMERAL_CONFIGS = [ALLOW_MULTI_TRACK,
                      IP_ADDRESS,
                      MULTI_TRACK,
                      REMOTE_TRACK_NAME,
                      REMOTE_NUM_LANES,
-                     REMOTE_CAR_ICONS]
+                     REMOTE_CAR_ICONS,
+                     WIFI_PSWD,
+                     WIFI_SSID]
 
 class Config:
 
@@ -124,6 +126,7 @@ class Config:
     DEFAULT[CIRCUIT] = "DRR"
     DEFAULT[COORDINATOR_HOSTNAME] = "<COORDINATOR_HOSTNAME>"
     DEFAULT[COORDINATOR_PORT] = 1968
+    DEFAULT[DISTRIBUTION_URL] = "https://github.com/tquiggle/Diecast-Remote-Raceway/releases"
     DEFAULT[FINISH_LINE_NAME] = "FinishLine"
     DEFAULT[IP_ADDRESS] = "127.0.0.1"
     DEFAULT[ALLOW_MULTI_TRACK] = False

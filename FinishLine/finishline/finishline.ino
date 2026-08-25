@@ -1,11 +1,10 @@
 /*
-	finish_line.ino
+  finish_line.ino
 
-	The finish line is responsible for monitoring for cars passing over each lane
+  The finish line is responsible for monitoring for cars passing over each lane
   and reporting back to the Starting Gate via Bluetooth.
 
-  TODO(tq): Finish write-up including commands accepted over BlueTooth and OTA
-            updates
+  TODO(tq): Finish write-up including commands accepted over BlueTooth and OTA updates
 
 Author: Tom Quiggle
 tquiggle@gmail.com
@@ -20,14 +19,16 @@ full license information.
 
 */
 
+#include <stddef.h>
+#include <string>
+#include <map>
+#include <Base64.h>
+
 #include "BluetoothSerial.h"
 
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
 #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
 #endif
-
-#include <string>
-#include <map>
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -38,29 +39,25 @@ full license information.
 #include <FS.h>
 #include <SPIFFS.h>
 
+#include "rsa_routines.h"
+
+
 // Hard coded config
-const char* FW_VERSION = "21012000";
-                       // YYMMDDVV Last two digits of Year, Month, Day, Version
-const char* fwVersionURLtemplate = "http://%s:%d/DRR/FL/version.txt";
-const char* fwURLtemplate = "http://%s:%d/DRR/FL/finish-line-%0d.bin";
+const char* FW_VERSION = "26081900";
+// YYMMDDVV Last two digits of Year, Month, Day, Version
 const char* configFilename = "/config.json";
 
 // Adjust defaults as you see fit
-#define URLLEN 80
-#define DEFAULT_WIFI_SSID "<SSID>"
-#define DEFAULT_WIFI_PASSWORD "<PASSWORD>"
+#define URLLEN 100
 #define DEFAULT_BT_ADVERTISEMENT "FinishLine"
-#define DEFAULT_CONTROLLER_HOSTNAME "<CONTROLLER_HOST>"
-#define DEFAULT_CONTROLLER_PORT 1968
-#define MAX_CONFIG_SIZE 256
+#define MAX_CONFIG_SIZE 512
 #define MAX_LANES 4
+#define WIFI_CONNECT_MAX_TRYS 10
+
+bool rsaInitialized = false;
 
 // Configuration stored in config.json
-String wifiSSID(DEFAULT_WIFI_SSID);
-String wifiPassword(DEFAULT_WIFI_PASSWORD);
 String bluetoothAdvertisement(DEFAULT_BT_ADVERTISEMENT);
-String controllerHostname(DEFAULT_CONTROLLER_HOSTNAME);
-int    controllerPort = DEFAULT_CONTROLLER_PORT;
 
 // Pin Assignments
 const int LANE1_PIN = 16;
@@ -82,6 +79,7 @@ enum Commands {
   BEGIN_RACE,
   END_RACE,
   VERSION,
+  GET_PUBLIC_KEY,
   GET_CONFIG,
   SET_CONFIG,
   DELETE_CONFIG,
@@ -89,7 +87,7 @@ enum Commands {
 };
 
 #define DEBOUNCE_MILLIS 100
-unsigned long lastFinish[MAX_LANES] = {0, 0, 0, 0};
+unsigned long lastFinish[MAX_LANES] = { 0, 0, 0, 0 };
 const int finishMessageLength = 4;
 const uint8_t* finishMessages[MAX_LANES] = {
   (uint8_t*)"FIN1",
@@ -100,20 +98,21 @@ const uint8_t* finishMessages[MAX_LANES] = {
 
 /* Mapping for command string received over Bluetooth to enum */
 static const std::map<String, Commands> commandTable = {
-  {"HELO", Commands::HELLO},
-  {"RSRT", Commands::RESTART},
-  {"UPFW", Commands::UPDATE_FW},
-  {"BGIN", Commands::BEGIN_RACE},
-  {"ENDR", Commands::END_RACE},
-  {"FWVS", Commands::VERSION},
-  {"GETC", Commands::GET_CONFIG},
-  {"SETC", Commands::SET_CONFIG},
-  {"DELC", Commands::DELETE_CONFIG}
+  { "HELO", Commands::HELLO },
+  { "RSRT", Commands::RESTART },
+  { "UPFW", Commands::UPDATE_FW },
+  { "BGIN", Commands::BEGIN_RACE },
+  { "ENDR", Commands::END_RACE },
+  { "FLVS", Commands::VERSION },
+  { "GKEY", Commands::GET_PUBLIC_KEY },
+  { "GETC", Commands::GET_CONFIG },
+  { "SETC", Commands::SET_CONFIG },
+  { "DELC", Commands::DELETE_CONFIG }
 };
 
 Commands toCommand(String str) {
-  std::map <String, Commands>::const_iterator iValue = commandTable.find(str);
-  if (iValue  == commandTable.end())
+  std::map<String, Commands>::const_iterator iValue = commandTable.find(str);
+  if (iValue == commandTable.end())
     return Commands::UNKNOWN;
   return iValue->second;
 }
@@ -137,13 +136,10 @@ bool saveConfig(const char* filename) {
     Serial.printf("saveConfig(): Failed to create config file %s\n", filename);
     return false;
   }
-  StaticJsonDocument<MAX_CONFIG_SIZE> doc;
 
-  doc["wifiSSID"] = wifiSSID;
-  doc["wifiPassword"] = wifiPassword;
+  JsonDocument doc;
+
   doc["bluetoothAdvertisement"] = bluetoothAdvertisement;
-  doc["controllerHostname"] = controllerHostname;
-  doc["controllerPort"] = controllerPort;
 
   String configJson;
   if (serializeJsonPretty(doc, configJson)) {
@@ -165,12 +161,8 @@ bool saveConfig(const char* filename) {
 bool readConfig(const char* filename) {
   Serial.println("readConfig(): Compiled Defaults:");
 
-  Serial.printf("  wifiSSID = %s\n", wifiSSID.c_str());
-  Serial.printf("  wifiPassword = %s\n", wifiPassword.c_str());
   Serial.printf("  bluetoothAdvertisement = %s\n",
                 bluetoothAdvertisement.c_str());
-  Serial.printf("  controllerHostname = %s\n", controllerHostname.c_str());
-  Serial.printf("  controllerPort = %d\n", controllerPort);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("readConfig(): SPIFFS.begin() failed.");
@@ -190,70 +182,60 @@ bool readConfig(const char* filename) {
     return false;
   }
 
-  StaticJsonDocument<MAX_CONFIG_SIZE> doc;
+  JsonDocument doc;
+
+  Serial.printf("readConfig(): calling deserializeJson\n");
   DeserializationError error = deserializeJson(doc, config);
+
   if (error) {
+    Serial.printf("deserializeJson failed with code");
+    Serial.println(error.f_str());
     Serial.printf("  unable to deserialize %s. Deleting.\n", filename);
     SPIFFS.remove(filename);
     return false;
   }
-  
-  Serial.printf("readConfig(): Configuration read from %s:\n", filename);
 
-  if (doc.containsKey("wifiSSID")) {
-    wifiSSID = doc["wifiSSID"].as<String>();
-    Serial.print("  wifiSSID = ");
-    Serial.println(wifiSSID);
-  }
-  if (doc.containsKey("wifiPassword")) {
-    wifiPassword = doc["wifiPassword"].as<String>();
-    Serial.print("  wifiPassword = ");
-    Serial.println(wifiPassword);
-  }
-  if (doc.containsKey("bluetoothAdvertisement")) {
+  Serial.printf("readConfig(): Configuration read from %s:\n", filename);
+  serializeJson(doc, Serial);
+  Serial.println("");
+
+  if (doc["bluetoothAdvertisement"].is<String>()) {
     bluetoothAdvertisement = doc["bluetoothAdvertisement"].as<String>();
     Serial.print("  bluetoothAdvertisement = ");
     Serial.println(bluetoothAdvertisement);
   }
-  if (doc.containsKey("controllerHostname")) {
-    controllerHostname = doc["controllerHostname"].as<String>();
-    Serial.print("  controllerHostname = ");
-    Serial.println(controllerHostname);
-  }
-  if (doc.containsKey("controllerPort")) {
-    controllerPort = doc["controllerPort"];
-    Serial.print("  controllerPort = ");
-    Serial.println(controllerPort);
-  }
+
+  Serial.printf("readConfig(): returning\n");
   config.close();
+  SPIFFS.end();
+  return true;
+}
+
+void deleteConfig(const char* filename) {
+  Serial.println("deleteConfig():");
+
+  if (!SPIFFS.begin(true)) {
+    Serial.println("deleteConfig(): SPIFFS.begin() failed.");
+    return;
+  }
+  SPIFFS.remove(filename);
   SPIFFS.end();
 }
 
 // Process a GETC command received via Bluetooth to update
 bool getConfig(String configStr) {
   Serial.printf("getConfig(): configStr=%s\n", configStr);
-  StaticJsonDocument<MAX_CONFIG_SIZE> doc;
+  //StaticJsonDocument<MAX_CONFIG_SIZE> doc;
+  JsonDocument doc;
 
   if (configStr.length() > 5) {
     String config = configStr.substring(5);
     Serial.printf("getConfig(): getting %s\n", config);
-    if (configStr == "wifiSSID") {
-      doc["wifiSSID"] = wifiSSID;
-    } else if (configStr == "wifiPassword") {
-      doc["wifiPassword"] = wifiPassword;
-    } else if (configStr == "bluetoothAdvertisement") {
+    if (configStr == "bluetoothAdvertisement") {
       doc["bluetoothAdvertisement"] = bluetoothAdvertisement;
-    } else if (configStr == "controllerHostname") {
-      doc["controllerHostname"] = controllerHostname;
-    } else if (configStr == "controllerPort") {
-      doc["controllerPort"] = controllerPort;
     }
   } else {
-    doc["wifiSSID"] = wifiSSID;
-    doc["wifiPassword"] = wifiPassword;
     doc["bluetoothAdvertisement"] = bluetoothAdvertisement;
-    doc["controllerHostname"] = controllerHostname;
-    doc["controllerPort"] = controllerPort;
   }
 
   String configJson;
@@ -261,7 +243,7 @@ bool getConfig(String configStr) {
     Serial.printf("config = %s\n", configJson.c_str());
   }
   SerialBT.write((const uint8_t*)configJson.c_str(), configJson.length());
-
+  return true;
 }
 
 // Process a SETC command received via Bluetooth to update
@@ -273,121 +255,165 @@ bool setConfig(String configStr) {
   size_t pos = configStr.indexOf('=');
   if (pos > 0) {
     key = configStr.substring(0, pos);
-    value = configStr.substring(pos+1);
+    value = configStr.substring(pos + 1);
   } else {
     Serial.println("Invalid config string");
     return false;
   }
 
   Serial.printf("setConfig(): key=%s, value=%s\n", key.c_str(), value.c_str());
-  if (key == "wifiSSID") {
-    wifiSSID = value;
-  } else if  (key == "wifiPassword") {
-    wifiPassword = value;
-  } else if  (key == "bluetoothAdvertisement") {
+  if (key == "bluetoothAdvertisement") {
     bluetoothAdvertisement = value;
-  } else if (key == "controllerHostname") {
-    controllerHostname = value;
-  } else if (key == "controllerPort") {
-    controllerPort = value.toInt();
   } else {
-    Serial.println("setConfig(): Invalud config name. Ignoring.");
+    Serial.println("setConfig(): Invalid config name. Ignoring.");
     return false;
   }
   return saveConfig(configFilename);
 }
 
-void deleteConfig() {
-  Serial.println("deleteConfig():");
-
-  if (!SPIFFS.begin(true)) {
-    Serial.println("deleteConfig(): SPIFFS.begin() failed.");
-    return;
+void printHexArray(byte *buffer, int bufferSize) {
+  for (int i = 0; i < bufferSize; i++) {
+    if (buffer[i] < 0x10) Serial.print("0");
+    Serial.print(buffer[i], HEX);
+    Serial.print(" ");
   }
-  SPIFFS.remove(configFilename);
-  SPIFFS.end();
+  Serial.println();
 }
 
-void checkForUpdates() {
-  Serial.printf("Running Finish Line version %s\n", FW_VERSION);
-  Serial.println("Configuring WiFi");
-  WiFi.mode(WIFI_STA);
+String decrypt_wifi_string(String encrypted_base64) {
+  unsigned char encrypted[MBEDTLS_MPI_MAX_SIZE];
+  unsigned char decrypted[MBEDTLS_MPI_MAX_SIZE];
 
-// Connect to the network
-  WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
+  size_t enc_len;  // Size of encrypted string stored in encrypted buffer
+  size_t dec_len;  // Size of decrypted string stored in decrypted buffer
 
-  int i = 0;
-  while (WiFi.status() != WL_CONNECTED) {  // Wait for the Wi-Fi to connect
-    delay(1000);
-    Serial.printf("Waiting for wifi %d\n", i++);
+  Serial.printf("decrypt_wifi_string(): base64 string is '%s'\n", encrypted_base64.c_str());
+
+  enc_len = Base64.decode((char*)encrypted, (char*)encrypted_base64.c_str(), encrypted_base64.length());
+
+  Serial.printf("decrypt_wifi_string(): base64 decoded: len=%d, encrypted=", enc_len);
+  printHexArray((byte*)encrypted, enc_len);
+
+  Serial.printf("Calling rsa_priv_dec\n");
+  rsa_priv_dec(encrypted, enc_len, decrypted, sizeof(decrypted), &dec_len);
+  decrypted[dec_len] = 0;
+
+  Serial.printf("Decrypted password is '%s'\n", decrypted);
+  return String((char*)decrypted);
+}
+
+int updateFirmware(String updateParametersJson) {
+  /*
+   * The updateParamsJson document contains the following:
+   *
+   * {"SSID":    "<WiFi SSID>",
+   *  "encryptedPSK":  "<encrypted WiFi PSK>",
+   *  "URL":     "<url of updated firmware"}
+   */
+
+  JsonDocument doc;
+  String wifiSSID;
+  String encryptedPSK;
+  String wifiPSK;
+  String fwImageURL;
+
+  Serial.printf("updateFirmware(): calling deserializeJson\n");
+  DeserializationError error = deserializeJson(doc, updateParametersJson);
+
+  if (error) {
+    Serial.printf("  deserializeJson failed with code %s\n", error.f_str());
+    return false;
   }
 
-  // expand template for URL of current firmware version
-  char fwVersionURL[URLLEN];
-  snprintf(fwVersionURL, URLLEN, fwVersionURLtemplate,
-           controllerHostname.c_str(), controllerPort);
+  if (doc["SSID"].is<String>()) {
+    wifiSSID = doc["SSID"].as<String>();
+    Serial.print("  wifiSSID = ");
+    Serial.println(wifiSSID);
+  }
+
+  if (doc["encryptedPSK"].is<String>()) {
+    encryptedPSK = doc["encryptedPSK"].as<String>();
+    Serial.print("  encryptedPSK = ");
+    Serial.println(encryptedPSK);
+  }
+
+  if (doc["URL"].is<String>()) {
+    fwImageURL = doc["URL"].as<String>();
+    Serial.print("  fwImageURL = ");
+    Serial.println(fwImageURL);
+  }
+
+  wifiPSK = decrypt_wifi_string(encryptedPSK);
+
+  // Connect to the network
+  WiFi.begin((const char*)wifiSSID.c_str(), (const char*)wifiPSK.c_str());
+
+  int trys = 0;
+  while (WiFi.status() != WL_CONNECTED && trys < WIFI_CONNECT_MAX_TRYS) {  // Wait for the Wi-Fi to connect
+    delay(1000);
+    Serial.printf("Waiting for wifi %d\n", trys++);
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.printf("Unable to connect to wifi in %d trys\n", trys++);
+    return false;
+  }
 
   Serial.println("Connection established!");
   Serial.print("IP address:\t");
   Serial.println(WiFi.localIP());
 
-  Serial.println("Checking for firmware updates.");
-  Serial.printf("Firmware version URL: %s\n", fwVersionURL);
+  Serial.printf("Preparing to update to %s\n", fwImageURL.c_str());
 
   WiFiClient client;
-  HTTPClient httpClient;
-  bool result = httpClient.begin(client, fwVersionURL);
-  Serial.printf("httpClient.begin(client, %s) returned %d\n",
-                fwVersionURL, result);
+  t_httpUpdate_return ret = httpUpdate.update(client, fwImageURL, FW_VERSION);
 
-  int httpCode = httpClient.GET();
-  Serial.printf("http.GET() returned %d\n", httpCode);
+  switch (ret) {
+    case HTTP_UPDATE_OK:
+      Serial.printf("HTTP_UPDATE_OK Rebooting to new image.");
+      delay(1000);
+      ESP.restart();
+      break;  // Just because it's good form!
 
-  if ( httpCode == 200 ) {
-    String newFWVersion = httpClient.getString();
-    int newVersion = newFWVersion.toInt();
-    int curVersion = atoi(FW_VERSION);
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n",
+                    httpUpdate.getLastError(),
+                    httpUpdate.getLastErrorString().c_str());
+      break;
 
-    Serial.printf("Current firmware version: %d\n", curVersion);
-    Serial.printf("Available firmware version: %d\n", newVersion);
-
-    if ( newVersion <= curVersion ) {
-      Serial.println("Firmware is up to date");
-    } else {
-      char fwImageURL[URLLEN];
-      t_httpUpdate_return ret;
-      
-      snprintf(fwImageURL, URLLEN, fwURLtemplate, controllerHostname.c_str(),
-               controllerPort, newVersion);
-      Serial.printf("Preparing to update to %s\n", fwImageURL);
-
-      ret = httpUpdate.update(client, fwImageURL, FW_VERSION);
-
-      switch (ret) {
-        case HTTP_UPDATE_OK:
-          Serial.printf("HTTP_UPDATE_OK Rebooting to new image.");
-          delay(1000);
-          ESP.restart();
-          break;  // Just because it's good form!
-
-        case HTTP_UPDATE_FAILED:
-          Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n",
-                        httpUpdate.getLastError(),
-                        httpUpdate.getLastErrorString().c_str());
-          break;
-
-        case HTTP_UPDATE_NO_UPDATES:
-          Serial.println("HTTP_UPDATE_NO_UPDATES");
-          break;
-      }
-    }
-  } else {
-    Serial.print("Firmware version check failed, got HTTP response code ");
-    Serial.println(httpCode);
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("HTTP_UPDATE_NO_UPDATES");
+      break;
   }
-  httpClient.end();
 }
 
+void get_public_key() {
+  const uint8_t* public_key;
+  size_t bytes = 0;
+  size_t written = 0;
+
+  Serial.println("get_public_key()");
+  if (!rsaInitialized) {
+    Serial.println("  calling rsa_init");
+    rsa_init();
+    rsaInitialized = true;
+  }
+
+  public_key = public_key_pem();
+  size_t len = strlen((const char*)public_key);
+
+  Serial.printf("  public_key=%s\n", (const char*)public_key);
+  Serial.printf("  len=%zu\n", len);
+
+  while (written < len) {
+    Serial.printf("  Writing to BT %zu bytes (%zu already written)\n", len, written);
+    bytes = SerialBT.write(&public_key[written], len - written);
+    written += bytes;
+    Serial.printf("GET_PUBLIC_KEY wrote %zu bytes of key with size %zu\n", written, len);
+    if (bytes == 0)
+      break;
+  }
+}
 
 void processMessage() {
   String data = SerialBT.readString();
@@ -396,8 +422,8 @@ void processMessage() {
     Serial.println("Command too short");
     return;
   }
-  
-  String command = data.substring(0,4);
+
+  String command = data.substring(0, 4);
   Serial.println("command = '" + command + "'");
 
   String argument = data.substring(5);
@@ -411,10 +437,13 @@ void processMessage() {
       ESP.restart();
       break;
     case UPDATE_FW:
-      checkForUpdates();
+      updateFirmware(argument);
       break;
     case VERSION:
       SerialBT.write((const uint8_t*)FW_VERSION, strlen(FW_VERSION));
+      break;
+    case GET_PUBLIC_KEY:
+      get_public_key();
       break;
     case BEGIN_RACE:
       raceRunning = true;
@@ -429,7 +458,7 @@ void processMessage() {
       setConfig(argument);
       break;
     case DELETE_CONFIG:
-      deleteConfig();
+      deleteConfig(configFilename);
       break;
     case UNKNOWN:
       Serial.println("Received unknown command.");
@@ -455,7 +484,8 @@ void setup() {
    */
   Serial.begin(115200);
   readConfig(configFilename);
-  checkForUpdates();
+  Serial.println("setup(): back from readConfig()\n");
+
   pinMode(LANE1_PIN, INPUT_PULLUP);
   pinMode(LANE2_PIN, INPUT_PULLUP);
   pinMode(LANE3_PIN, INPUT_PULLUP);
@@ -464,6 +494,7 @@ void setup() {
   Serial.printf("setup(): Initializing SerialBT with advertisement '%s'\n",
                 bluetoothAdvertisement.c_str());
   SerialBT.begin(bluetoothAdvertisement, false);
+  Serial.printf("Back from SerialBT.begin()");
 }
 
 void loop() {

@@ -9,7 +9,8 @@ my $dist_dir = "/home/htdocs/DRR/FL";  # Directory where FL distribution files a
 my $version = "";                      # distribution version from within a single day
 
 my $src_file = "finishline/finishline.ino";
-my $bin_file = "finishline/finishline.ino.esp32.bin";
+#my $bin_file = "finishline/finishline.ino.esp32.bin";
+my $bin_file = "finishline/build/esp32.esp32.esp32/finishline.ino.bin";
 
 my $src_mtime = (stat($src_file))[9];
 my $bin_mtime = (stat($bin_file))[9];
@@ -28,7 +29,7 @@ close $fh;
 
 die "Unable to determine source version" if ($version == "");
 
-my $dist_filename = sprintf("$dist_dir/finish-line-%s.bin", $version);
+my $dist_filename = sprintf("$dist_dir/FL%s.bin", $version);
 print "Releasing $bin_file to $dist_filename\n";
 system("cp $bin_file $dist_filename");
 

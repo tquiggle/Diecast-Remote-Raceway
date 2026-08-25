@@ -39,7 +39,7 @@ The wiring to connect the ESP32 dev board to the YWBL-WH Infrared Tracking Senso
 ![Finish Line Wiring](../images/FinishLine-Wiring.png)
 
 I used a 6 pin Dupont connector for the YWBL-WH header and two right angle crimp-on connectors to connect to
-the ESP32. The ribbon cable was split to accomodate two right angle connectors: a two pin connector for Vcc and
+the ESP32. The ribbon cable was split to accommodate two right angle connectors: a two pin connector for Vcc and
 GND, and a *5 pin* connector to connect the four lane sensors to GPIO16 through GPIO19.  Note that the middle
 pin of the 5 pin connector that would connect to GPIO05 is not connected.
 
@@ -60,3 +60,45 @@ is plugged into a 5V power source.  Start with no car present.  Turn the white p
 the lane until the indicator lights up.  Then turn back just past the point where the light turns off.  Test the
 lane by placing a car over the sensor.  The corresponding indicator should illuminate.
 
+## Software Updates
+
+In the initial implementation, the Finish Line checked for software updates on every restart.  This required
+bringing up the WiFi interface, connecting using a SSID and password stored in config, fetching the most recent
+release version number and comparing it to the version running.  If a newer version was available, it would be
+downloaded and run.
+
+This had two problems.  First, it unnecessarily brought up the WiFi interface and lengthened the
+(already too long) startup time even when there was no software update. Second, it required
+storing a fair amount of configuration data in SPIFFS that is difficult to update.  While you CAN
+set config values over bluetooth using the SETC command, it's not exactly convenient. If setting
+the WiFi config values, it would send the WiFi password unencrypted over Bluetooth - something I'm
+loath to do!
+
+The update check has since been moved to the Starting Gate. If the Starting Gate has a WiFi
+connection, once it has established a Bluetooth connection to the Finish Line, it sends a FLVS
+command to retrieve the Finish Line Version String. The Starting Gate then checks if an update
+is available.  If so, it sends a UPFW command to the Finish Line telling it to update its firmware.
+The UPFW command passes a JSON argument containing the WiFi SSID, an encrypted password/pks
+string and the URL of the updated software image.
+
+In order to encrypt the WiFi password, the Starting Gate requests a RSA public key
+from the Finish Line via the GKEY command.  In response to the GKEY command, the Finish Line generates
+a 2048 bit random RSA key pair and returns the public key in PEM format. The Starting Gate uses this
+public key to encrypt the WiFi password before sending it as part of the JSON argument to the
+UPFW command.
+
+The only remaining configuration variable maintained in SPIFFS is the Bluetooth advertisement
+string which defaults to "FinishLine".  The only reason to change this value is if you are
+running multitrack races where both tracks are connected to the same WiFi. I did this
+extensively when developing the software. For example, if you wanted to set the Bluetooth
+advertisement on a Finish Line to "FinishLine2," you can use the sendcmd.py script in the 
+StartingGate's 'util' directory:
+
+```console
+
+% ./sendcmd.py 'SETC bluetoothAdvertisement=FinishLine2'
+
+```
+
+and update the corresponding FINISH\_LINE\_NAME config in the Starting Gate that you want
+to connect to the Finish Line.
