@@ -43,7 +43,7 @@ full license information.
 
 
 // Hard coded config
-const char* FW_VERSION = "26081900";
+const char* FW_VERSION = "26082600";
 // YYMMDDVV Last two digits of Year, Month, Day, Version
 const char* configFilename = "/config.json";
 
@@ -483,6 +483,7 @@ void setup() {
    * By pulling up all four of the pins, disconnected lanes will just never report state change.
    */
   Serial.begin(115200);
+  Serial.printf("Starting FinishLine version: %s\n", FW_VERSION);
   readConfig(configFilename);
   Serial.println("setup(): back from readConfig()\n");
 
