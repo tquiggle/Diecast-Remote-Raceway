@@ -31,6 +31,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 
 from config import Config
+from wifi import WiFi
 
 READ_ONLY = select.POLLIN | select.POLLPRI | select.POLLHUP | select.POLLERR
 
@@ -72,7 +73,7 @@ class FinishLine:
         self.connected = False
         self.poller = select.poll()
         self.finish_line_connected = False
-
+        self.wifi = WiFi()
 
     def connect(self) -> bool:
         """
@@ -209,7 +210,7 @@ class FinishLine:
         # There is a newer version. Construct the update request
 
         # Lookup what WiFi network the StartingGate is connected to
-        essid = self.__get_essid()
+        essid = self.wifi.get_essid()
         if essid:
             print(f"Connected to: {essid}")
         else:
@@ -217,7 +218,7 @@ class FinishLine:
             return
 
         # And retrieve the PSK
-        psk = self.__get_psk(essid)
+        psk = self.wifi.get_psk(essid)
         if psk:
             print(f"psk found: {psk}")
         else:
@@ -275,61 +276,6 @@ class FinishLine:
         version = data.decode('utf-8')
 
         return version
-
-    def __get_essid(self) -> str:
-        try:
-            # Run the command and capture standard output
-            output = subprocess.check_output(
-                ["iwgetid"], stderr=subprocess.STDOUT, text=True
-            )
-
-            # Extract the value inside quotes using regex
-            match = re.search(r'ESSID:"([^"]+)"', output)
-            if match:
-                return match.group(1)
-            return None
-
-        except subprocess.CalledProcessError:
-            # Occurs if iwgetid exits with non-zero code (e.g., disconnected)
-            return None
-        except FileNotFoundError:
-            print("Error: 'iwgetid' command not found. Ensure wireless-tools is installed.")
-            return None
-
-    def __get_psk(self, essid) -> str:
-        filename = f"/etc/NetworkManager/system-connections/{essid}.nmconnection"
-        nmconnection_file = Path(filename)
-
-        if not nmconnection_file.is_file():
-            # Can't find .nmconnection file for connected ESSID. WiFi may have been configured
-            # when burning the image, in which case the .nmconnection file will be named
-            # "preconfigured.nmconnection"
-            filename = "/etc/NetworkManager/system-connections/preconfigured.nmconnection"
-            nmconnection_file = Path(filename)
-            if not nmconnection_file.is_file():
-                print("Unable to find WiFi connection information.")
-                return None
-        try:
-            print(f"get_psk({essid} parsing file {filename})")
-            with open(filename, "r", encoding="utf-8") as file:
-                for line in file:
-                    # Strip leading/trailing whitespace
-                    line = line.strip()
-
-                    # Match lines starting with psk= and capture the rest of the string
-                    # Handles optional quotes if the value is formatted as psk="value"
-                    match = re.match(r"^psk=\"?([^\"]+)\"?$", line)
-                    if match:
-                        print(f"line='{line}")
-                        psk = match.group(1)
-                        print(f"get_psk: {filename} found: {psk}")
-                        return psk
-
-            return None  # Return None if no psk line was found
-
-        except FileNotFoundError:
-            print(f"Error: The file '{filename}' was not found.")
-            return None
 
     def __get_public_key_pem(self):
         command = "GKEY"
