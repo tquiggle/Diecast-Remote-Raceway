@@ -71,6 +71,7 @@ REMOTE_NUM_LANES = "remote_num_lanes"   # Number of lanes in the track we are ra
 REMOTE_CAR_ICONS = "remote_car_icons"   # Car icons to use for remote lanes
 WIFI_PSWD = "wifi_pswd"                 # WiFi Password
 WIFI_SSID = "wifi_ssid"                 # WiFi SSID
+WIFI_REGION = "wifi_region"             # WiFi Region
 
 PERSISTED_CONFIGS = [CAR_ICONS,
                      CIRCUIT,
@@ -91,7 +92,8 @@ EPHEMERAL_CONFIGS = [ALLOW_MULTI_TRACK,
                      REMOTE_NUM_LANES,
                      REMOTE_CAR_ICONS,
                      WIFI_PSWD,
-                     WIFI_SSID]
+                     WIFI_SSID,
+                     WIFI_REGION]
 
 class Config:
 
@@ -139,8 +141,9 @@ class Config:
     DEFAULT[SERVO_DOWN_VALUE] = 1.0
     DEFAULT[SERVO_UP_VALUE] = 0.0
     DEFAULT[TRACK_NAME] = "Track-1"
-    DEFAULT[WIFI_PSWD] = "<WIFI_PASSWORD>"
-    DEFAULT[WIFI_SSID] = "<WIFI_SSID>"
+    DEFAULT[WIFI_PSWD] = ""
+    DEFAULT[WIFI_SSID] = ""
+    DEFAULT[WIFI_REGION] = ""
 
     def __init__(self, filename):
         self.__filename = filename
@@ -205,6 +208,14 @@ class Config:
                 filehandle.write(config_string)
                 filehandle.close()
 
+    def reset(self):
+        """
+        Reset configuration to default values and persist to config file
+        """
+        for cfg in PERSISTED_CONFIGS + EPHEMERAL_CONFIGS:
+            print("setting ", cfg, " to ", Config.DEFAULT[cfg])
+            object.__setattr__(self, cfg, Config.DEFAULT[cfg])
+        self.save()
 
 def main():
     """
