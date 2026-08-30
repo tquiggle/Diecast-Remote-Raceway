@@ -40,11 +40,11 @@ class Coordinator:
 
     The local race controller communicates with the Race Coordinator at via 4 interactions:
 
-    * register:   upon startup, if multi-track racing is selected, the local track registers
+    * register:   Upon startup, if multi-track racing is selected, the local track registers
                   with the Race Coordinator providing the track_name, number of lanes, and
                   car icon selections.
 
-    * deregister: at shut-down or if the user switches to single-track racing, the local track
+    * deregister: At shut-down or if the user switches to single-track racing, the local track
                   removes its registration with the Race Coordinator.
 
     * start:      Indicates that the local track is ready to start a race.  The Race
