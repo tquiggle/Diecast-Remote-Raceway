@@ -14,3 +14,7 @@ disable=too-few-public-methods,
 
 [DESIGN]
 max-statements=60
+
+[FROMAT]
+# Maximum number of lines in a module.
+max-module-lines=1500
