@@ -1,7 +1,8 @@
 #! /usr/bin/bash
 
 #
-# Shell script to bouild and install the DRM version of raylib 5
+# Shell script to build and install the DRM version of raylib 5
+# and build the corresponding python wheel
 #
 
 num_cpus=$(nproc)
@@ -15,3 +16,5 @@ cmake -DPLATFORM="DRM" -DBUILD_EXAMPLES=OFF -DCUSTOMIZE_BUILD=ON -DSUPPORT_FILEF
 make -j $num_cpus
 sudo make install
 
+sudo python3 -m pip install --break-system-packages setuptools
+sudo python3 -m pip install --break-system-packages --no-cache-dir --no-binary raylib --upgrade --force-reinstall raylib==5.5.0.0
