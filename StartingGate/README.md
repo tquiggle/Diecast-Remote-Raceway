@@ -9,7 +9,7 @@ This directory contains the 3D models, software and instructions for the Startin
 ### Starting Gate
 
 The Starting Gate is derived from the excellent design by 
-[capsurfer](https://www.thingiverse.com/capsurfer/about) on 
+[capsurfer](https://www.thingiverse.com/capsurfer/designs) on 
 [Thingiverse](https://www.thingiverse.com/thing:4026846) with a number of modifications to adapt it to automation.
 
 The following components are printed exactly as-is from capsurfer's original design:
@@ -98,7 +98,10 @@ The Controller electronics is comprised of a stack of 3 circuit boards: a Raspbe
 
 ### Raspberry Pi Zero
 
-The Starting Gate is controlled by a Raspberry Pi Zero W.  These are available for about $10 without the GPIO header or about $15 for the Pi Zero WH model with preinstalled GPIO headers.
+The Starting Gate is controlled by a Raspberry Pi Zero W (or Zero 2 W).  These are normally available for about $15 without the GPIO header or about
+$20 for the WH model with preinstalled GPIO headers.  However with the current AI hardware boom, Raspberry Pi Holdings is experiencing supply chain
+issues and as of Fall 2026 boards are extremely hard to get.
+
 
 ![GPIO-zero](../images/GPIO-zero.jpg)
 
@@ -129,11 +132,14 @@ The Starting Gate is controlled by a Raspberry Pi Zero W.  These are available f
 
 ### Connector Breakout Board
 
-The Connector Breakout Board (CBB) connects to the Raspberry Pi GPIO connector and provides JST connectors to plug in the servo and lane sensors. There are
-two options for the CBB: use a commercially available ModMyPi Zero Prototying pHat and solder jumper wires to create the necessary circuit, or use the
-provided Gerber files to have a custom PCB printed. The PCB solution involves less soldering and is cleaner, but requires you to have the PCBs
-fabricated.  I used [PCBWay](https://www.pcbway.com/).  I still have a few of the blank PCBs.  If you are seriously building a DRR, reach out to me and
-I can mail you one.
+The Connector Breakout Board (CBB) connects to the Raspberry Pi
+GPIO connector and provides JST connectors to plug in the servo and
+lane sensors. There are two options for the CBB: use a commercially
+available ModMyPi Zero Prototyping pHat and solder jumper wires to
+create the necessary circuit, or use the provided Gerber files to
+have a custom PCB printed. The PCB solution involves less soldering
+and is cleaner, but requires you to have the PCBs fabricated.  I used
+[PCBWay](https://www.pcbway.com/).
 
 #### Prototyping pHAT Schematic
 
@@ -163,91 +169,82 @@ The Starting Gate consists of the following components
 * drr\_wrapper.py called from /etc/rc.init at boot, checks for software updates and runs starting\_gate.py as a child process.  If starting\_gate.py fails for any reason, it is restarted
 * starting\_gate.py is the executable for the starting gate. It displays the initial menu and runs races
 
-* config.py manages confiuration settings
+* config.py manages configuration settings
 * coordinator.py interface to the Race Coordinator server when running multi-track races
 * deviceio.py interface to WaveShare 1.3" LCD buttons, servo and GPIO PINs for sensing cars
 * display.py manages the race display
+* finishline.py manages communication with the Finish Line
 * input.py accepts user input via character selection from a grid
-* menu.py manages the top level menu and all configuration menues
+* menu.py manages the top level menu and all configuration menus
 
-## Raspberry Pi Setup
+## Raspberry Pi Software Setup
 
 ### Install Raspberry PI OS
 
-The DRR software writes directly to the framebuffer and does not need a desktop OS image.
+#### Using Raspberry Pi Imager
 
-I strongly recommend you install via the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).  You will need a minimum 8GB microSDHC card.
-Insert the card into an appropriate card reader on your computer.
+The easiest way to get up and running is to use a preconfigured OS image
+from the DRR GitHub repository.
 
-Run the Raspberry Pi Imager and select your board.
+The image contains a Raspberry Pi OS Lite with the necessary drivers, libraries,
+DRR software and user account already installed. Two images are available, one
+for the Raspberry Pi Zero W and one for the Raspberry Pi Zero 2 W.
+The former is 32 bit and the latter 64 bit.
 
-1.  Click on "CHOOSE DEVICE" and select either the "Raspberry Pi Zero W" or "Raspberry Pi Zerro 2 W" depending in which board you are using.
-1.  Click on "CHOOSE OS" and select "Raspberry Pi OS (other)" then "Rasboerry Pi OS Lite (32-bit)"
-1.  Click on "CHOOSE STORAGE" and select the appropriate option for the storage card you are initializing
-1.  Click on "NEXT" and when asked to apply OS customisation settings, click "EDIT SETTINGS"
-    * Under "General," provide a hostname, username and password, LAN configuration and Locale settings.
-    * Under "Services" enable SSH.
-1.  After editing settings, click on "YES"
-1.  Click on "YES" to write the OS image to your SD card
+The image can be installed directly using the 
+[Raspberry Pi Imager](https://www.raspberrypi.com/software/).
+Download and install the latest version.
 
-Once your SD card is initialized insert it into your Raspberry Pi Zero.  You can either connect a keyboard and monitor or just SSH into the device when it
-boots. Log in using the username and password you created when running the Raspberry Pi Imager.
+By default, the Raspberry Pi Imager will not customize a bare downloaded image file.  You will
+need to use a custom Content Repository.
 
-Once logged in, I recommend you upgrade any packages:
+Run the Raspberry Pi Imager and configure to use custom OS image as follows:
 
+1.  Click the  "APP OPTIONS" button
+1.  Click the "EDIT" button after Content Repository
+1.  Select "Use custom URL"
+1.  Copy and Paste the following URL into the text box:
+
+<!--
+```bash
+    https://raw.githubusercontent.com/tquiggle/Diecast-Remote-Raceway/refs/heads/master/StartingGate/util/drr_os_list.json
 ```
-sudo apt update
-sudo apt upgrade
-```
+-->
 
-### Setup the Waveshare 1.3" LCD HAT
-
-Raspberry OS Bookworm has native support for the st7799 display driver chip.  There is no need to follow the instructions from the [Waveshare
-Wiki](https://www.waveshare.com/wiki/1.3inch_LCD_HAT). The shell script `setup-waveshare-1.3-HAT.sh` in the util subdirectory will perform all necessary changes to a base Raspberry OS system.
-
-```
-wget https://raw.githubusercontent.com/tquiggle/Diecast-Remote-Raceway/refs/heads/master/StartingGate/util/setup-waveshare-1.3-HAT.sh
-chmod 755 setup-waveshare-1.3-HAT.sh 
-sudo ./setup-waveshare-1.3-HAT.sh
+```bash
+    URL COMING SOON
 ```
 
-### Install Python 3 and the necessary libraries
+5.  Click "APPLY & RESTART"
 
-1. Install the necessary prerequisites:
+Insert the card into an appropriate card reader on your computer, or in a 
+[USB SD Card Reader](https://www.amazon.com/dp/B0DQ71G4G4?th=1).
 
-    ```
-    sudo apt install -y cmake git python3 python3-gpiozero python3-pigpio python3-bluez python3-pip libegl1-mesa-dev libgbm-dev libgles2-mesa-dev libdrm-dev
-    ```
+Re-run the Raspberry Pi IMager and select the Zero board you are using. The correct OS image should be the only option
+in the OS menu.
 
-1.  Have pigpiod start on every boot
+In the Customisation menu, the Hostname is pre-configured as 'drr' and the user 'drr' has been created.  You can just
+click 'NEXT' to skip these.
 
-    ```
-    sudo systemctl enable pigpiod
-    ```
+#### Building from Scratch
 
-### Build the 32 bit DRM version of Raylib
+See the file BUILD.MD in the StartingGate directory for instructions on how to build an image from scratch.
 
-This mostly follows the instructions at the [Python Bindings for Raylib 5.5](https://electronstudio.github.io/raylib-python-cffi/README.html) Github page for [Compile Raylib from source DRM mode](https://electronstudio.github.io/raylib-python-cffi/RPI.html#option-3-compile-raylib-from-source-drm-mode) for the Raspberry Pi.
+### Configuring WiFi
 
-1. Build a shared lib version of Raylib in DRM mode and install to /usr:
+If you know the credentials of the WiFi network that your Diecast Remote Raceway components will connect to, simply
+configure the SSID and password when burning the image with the Raspberry Pi Imager.  Otherwise there are two
+options to configure later
 
-    ```
-    git clone https://github.com/raysan5/raylib.git --branch 5.0 --single-branch
-    cd raylib
-    mkdir build
-    rm rf build/*
-    cd build
-    cmake -DPLATFORM="DRM" -DBUILD_EXAMPLES=OFF -DCUSTOMIZE_BUILD=ON -DSUPPORT_FILEFORMAT_JPG=ON -DSUPPORT_FILEFORMAT_FLAC=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
-    make -j
-    sudo make install
-    ```
+#### Using the Starting Gate Hotspot
 
-1. Then have pip compile and install the wheel for the python bindings:
+When the Starting Gate boots, if it can not connect to WiFi, it starts a WiFi Hotspot named 'DRR WiFi Setup'
+Simply connect to this WiFi Hotspot using your phone/tablet/laptop. There is no password.  Once connected 
+you will be directed to a captive portal page to select a WiFi network and enter the password.
 
-    ```
-    python3 -m pip install --break-system-packages setuptools
-    python3 -m pip install --no-cache-dir --no-binary raylib --upgrade --force-reinstall --break-system-packages raylib==5.5.0.0
-    ```
+#### Using the Starting Gate configuration menu
 
-That's it, you sould be able to run the DRR python application.
+From the top level menu, push the bottom button to enter the configuration menu.  From there,
+select "WiFi Setup" and fill in the WiFi region (if necessary) and the SSID and Password.
+
 
