@@ -19,7 +19,7 @@ Description=Daemon required to control GPIO pins via pigpio
 
 [Service]
 Type=forking
-ExecStart=/usr/local/bin/pigpiod -t 0 -l
+ExecStart=/usr/local/bin/pigpiod -t 0
 Restart=always
 ExecStop=/bin/systemctl kill pigpiod
 
