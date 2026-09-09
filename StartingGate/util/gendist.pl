@@ -1,5 +1,11 @@
 #! /usr/bin/perl
 
+# OBSOLETE!!!
+#
+# The Starting Gate now updates itself directly from the github repository
+# via 'git fetch'
+#
+
 # Script to create distribution file from current directory contents.
 # In Perl, just because.
 
@@ -36,7 +42,7 @@ close VER;
 
 print "Creating distribution file $dist_filename\n";
 
-system("tar cz --exclude='__pycache__' --exclude='dist' --exclude='STL' --exclude='releases' --exclude='config/starting_gate.json' -f $dist_filename *");
+system("tar cz --exclude='__pycache__' --exclude='dist' --exclude=gerber --exclude='STL' --exclude=releases/* --exclude='config/starting_gate.json' -f $dist_filename *");
 
 system("cp version.txt $dist_dir/")
 
