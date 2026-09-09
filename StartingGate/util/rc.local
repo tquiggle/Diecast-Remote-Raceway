@@ -1,0 +1,4 @@
+#!/bin/sh -e
+
+/sbin/runuser -l -c /home/drr/Diecast-Remote-Raceway/StartingGate/drr_wrapper.py drr
+exit 0
