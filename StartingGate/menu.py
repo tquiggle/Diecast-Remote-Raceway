@@ -22,7 +22,6 @@ button.  See the Input class for details on how text input is handled.
 TODO:
 
    * Add menu item to select the name of the finish line to connect to
-   * Implement RESET logic to delete saved config and reload from defaults
 
 Logical Menu Layout:
 
@@ -55,6 +54,8 @@ Logical Menu Layout:
                 * ENTER_WIFI_SSID = 3611
             * WIFI_PSWD = 362
                 * ENTER_WIFI_PSWD = 3621
+            * WIFI_REGION = 363
+                * ENTER_WIFI_REGION = 3631
         * COORDINATOR_SETUP = 37
             # __controller_menu()
             * COORD_HOSTNAME = 371
@@ -67,8 +68,12 @@ Logical Menu Layout:
                 * ENTER_SERVO_DOWN_VALUE = 3811
             * SERVO_UP_VALUE = 382
                 * ENTER_SERVO_UP_VALUE = 3821
-        * RESET = 39
-            * PERFORM_RESET = 391
+        * RESET_RESTART_SETUP = 39
+            # __reset_restart_menu()
+            * PERFORM_RESTART = 391
+                * CONFIRM_RESTART = 3911
+            * PERFORM_RESET = 392
+                * CONFIRM_RESTART = 3921
 
 Author: Tom Quiggle
 tquiggle@gmail.com
@@ -81,14 +86,17 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 
 import enum
 import glob
+import math
+import sys
 import time
 
 import pyray
-from pyray import BLACK, LIGHTGRAY, ORANGE, RAYWHITE, WHITE
+from pyray import BLACK, LIGHTGRAY, ORANGE, RAYWHITE, WHITE, RED
 
 from deviceio import DeviceIO, JOYU, JOYD, JOYL, JOYR, JOYP, SERVO
 from input import Input, MODE_SPECIAL
 from config import Config
+from wifi import WiFi
 
 @enum.unique
 class MenuState(enum.Enum):
@@ -108,7 +116,7 @@ class MenuState(enum.Enum):
     WIFI_SETUP = 36
     COORDINATOR_SETUP = 37
     SERVO_LIMITS = 38
-    RESET = 39
+    RESET_RESTART_SETUP = 39
     # __car_menu()
     CAR_1_ICON = 331
     CAR_2_ICON = 332
@@ -117,14 +125,16 @@ class MenuState(enum.Enum):
     # __wifi_menu()
     WIFI_SSID = 361
     WIFI_PSWD = 362
+    WIFI_REGION = 363
     # __controller_menu()
     COORD_HOSTNAME = 371
     COORD_PORT = 372
     # __servo_menu
     SERVO_DOWN_VALUE = 381
     SERVO_UP_VALUE = 382
-    # __perform_reset()
-    PERFORM_RESET = 391
+    # __reset_restart_menu()
+    PERFORM_RESTART = 391
+    PERFORM_RESET = 392
     # Terminal entries in menu where we accept user input
     ENTER_TRACK_NAME = 311
     ENTER_NUM_LANES = 321
@@ -136,10 +146,13 @@ class MenuState(enum.Enum):
     ENTER_RACE_TIMEOUT = 351
     ENTER_WIFI_SSID = 3611
     ENTER_WIFI_PSWD = 3621
+    ENTER_WIFI_REGION = 3631
     ENTER_COORD_HOSTNAME = 3711
     ENTER_COORD_PORT = 3721
     ENTER_SERVO_DOWN_VALUE = 3811
     ENTER_SERVO_UP_VALUE = 3821
+    CONFIRM_RESTART = 3911
+    CONFIRM_RESET = 3921
 
     def next(self):
         """
@@ -167,7 +180,7 @@ UP = {}
 UP[MenuState.SINGLE_TRACK] = MenuState.CONFIGURE
 UP[MenuState.MULTI_TRACK] = MenuState.SINGLE_TRACK
 UP[MenuState.CONFIGURE] = MenuState.MULTI_TRACK
-UP[MenuState.TRACK_NAME] = MenuState.RESET
+UP[MenuState.TRACK_NAME] = MenuState.RESET_RESTART_SETUP
 UP[MenuState.NUM_LANES] = MenuState.TRACK_NAME
 UP[MenuState.CAR_ICONS] = MenuState.NUM_LANES
 UP[MenuState.CAR_1_ICON] = MenuState.CAR_4_ICON
@@ -177,13 +190,16 @@ UP[MenuState.CAR_4_ICON] = MenuState.CAR_3_ICON
 UP[MenuState.CIRCUIT_NAME] = MenuState.CAR_ICONS
 UP[MenuState.RACE_TIMEOUT] = MenuState.CIRCUIT_NAME
 UP[MenuState.WIFI_SETUP] = MenuState.RACE_TIMEOUT
-UP[MenuState.WIFI_SSID] = MenuState.WIFI_PSWD
+UP[MenuState.WIFI_SSID] = MenuState.WIFI_REGION
 UP[MenuState.WIFI_PSWD] = MenuState.WIFI_SSID
+UP[MenuState.WIFI_REGION] = MenuState.WIFI_PSWD
 UP[MenuState.COORDINATOR_SETUP] = MenuState.WIFI_SETUP
 UP[MenuState.COORD_HOSTNAME] = MenuState.COORD_PORT
 UP[MenuState.COORD_PORT] = MenuState.COORD_HOSTNAME
 UP[MenuState.SERVO_LIMITS] = MenuState.COORDINATOR_SETUP
-UP[MenuState.RESET] = MenuState.SERVO_LIMITS
+UP[MenuState.RESET_RESTART_SETUP] = MenuState.SERVO_LIMITS
+UP[MenuState.PERFORM_RESET] = MenuState.PERFORM_RESTART
+UP[MenuState.PERFORM_RESTART] = MenuState.PERFORM_RESET
 UP[MenuState.SERVO_DOWN_VALUE] = MenuState.SERVO_UP_VALUE
 UP[MenuState.SERVO_UP_VALUE] = MenuState.SERVO_DOWN_VALUE
 UP[MenuState.ENTER_TRACK_NAME] = MenuState.ENTER_TRACK_NAME
@@ -192,6 +208,7 @@ UP[MenuState.ENTER_CIRCUIT_NAME] = MenuState.ENTER_CIRCUIT_NAME
 UP[MenuState.ENTER_RACE_TIMEOUT] = MenuState.ENTER_RACE_TIMEOUT
 UP[MenuState.ENTER_WIFI_SSID] = MenuState.ENTER_WIFI_SSID
 UP[MenuState.ENTER_WIFI_PSWD] = MenuState.ENTER_WIFI_PSWD
+UP[MenuState.ENTER_WIFI_REGION] = MenuState.ENTER_WIFI_REGION
 UP[MenuState.ENTER_COORD_HOSTNAME] = MenuState.ENTER_COORD_HOSTNAME
 UP[MenuState.ENTER_COORD_PORT] = MenuState.ENTER_COORD_PORT
 UP[MenuState.ENTER_SERVO_UP_VALUE] = MenuState.ENTER_SERVO_UP_VALUE
@@ -200,6 +217,8 @@ UP[MenuState.SELECT_CAR_1_ICON] = MenuState.SELECT_CAR_1_ICON
 UP[MenuState.SELECT_CAR_2_ICON] = MenuState.SELECT_CAR_2_ICON
 UP[MenuState.SELECT_CAR_3_ICON] = MenuState.SELECT_CAR_3_ICON
 UP[MenuState.SELECT_CAR_4_ICON] = MenuState.SELECT_CAR_4_ICON
+UP[MenuState.CONFIRM_RESTART] = MenuState.CONFIRM_RESTART
+UP[MenuState.CONFIRM_RESET] = MenuState.CONFIRM_RESET
 
 # Menu transitions when the joystick is pushed DOWN
 DOWN = {}
@@ -218,20 +237,24 @@ DOWN[MenuState.CIRCUIT_NAME] = MenuState.RACE_TIMEOUT
 DOWN[MenuState.RACE_TIMEOUT] = MenuState.WIFI_SETUP
 DOWN[MenuState.WIFI_SETUP] = MenuState.COORDINATOR_SETUP
 DOWN[MenuState.WIFI_SSID] = MenuState.WIFI_PSWD
-DOWN[MenuState.WIFI_PSWD] = MenuState.WIFI_SSID
+DOWN[MenuState.WIFI_PSWD] = MenuState.WIFI_REGION
+DOWN[MenuState.WIFI_REGION] = MenuState.WIFI_SSID
 DOWN[MenuState.COORDINATOR_SETUP] = MenuState.SERVO_LIMITS
 DOWN[MenuState.COORD_HOSTNAME] = MenuState.COORD_PORT
 DOWN[MenuState.COORD_PORT] = MenuState.COORD_HOSTNAME
-DOWN[MenuState.SERVO_LIMITS] = MenuState.RESET
+DOWN[MenuState.SERVO_LIMITS] = MenuState.RESET_RESTART_SETUP
 DOWN[MenuState.SERVO_DOWN_VALUE] = MenuState.SERVO_UP_VALUE
 DOWN[MenuState.SERVO_UP_VALUE] = MenuState.SERVO_DOWN_VALUE
-DOWN[MenuState.RESET] = MenuState.TRACK_NAME
+DOWN[MenuState.RESET_RESTART_SETUP] = MenuState.TRACK_NAME
+DOWN[MenuState.PERFORM_RESET] = MenuState.PERFORM_RESTART
+DOWN[MenuState.PERFORM_RESTART] = MenuState.PERFORM_RESET
 DOWN[MenuState.ENTER_TRACK_NAME] = MenuState.ENTER_TRACK_NAME
 DOWN[MenuState.ENTER_NUM_LANES] = MenuState.ENTER_NUM_LANES
 DOWN[MenuState.ENTER_CIRCUIT_NAME] = MenuState.ENTER_CIRCUIT_NAME
 DOWN[MenuState.ENTER_RACE_TIMEOUT] = MenuState.ENTER_RACE_TIMEOUT
 DOWN[MenuState.ENTER_WIFI_SSID] = MenuState.ENTER_WIFI_SSID
 DOWN[MenuState.ENTER_WIFI_PSWD] = MenuState.ENTER_WIFI_PSWD
+DOWN[MenuState.ENTER_WIFI_REGION] = MenuState.ENTER_WIFI_REGION
 DOWN[MenuState.ENTER_COORD_HOSTNAME] = MenuState.ENTER_COORD_HOSTNAME
 DOWN[MenuState.ENTER_SERVO_UP_VALUE] = MenuState.ENTER_SERVO_DOWN_VALUE
 DOWN[MenuState.ENTER_SERVO_DOWN_VALUE] = MenuState.ENTER_SERVO_UP_VALUE
@@ -240,6 +263,8 @@ DOWN[MenuState.SELECT_CAR_1_ICON] = MenuState.SELECT_CAR_1_ICON
 DOWN[MenuState.SELECT_CAR_2_ICON] = MenuState.SELECT_CAR_2_ICON
 DOWN[MenuState.SELECT_CAR_3_ICON] = MenuState.SELECT_CAR_3_ICON
 DOWN[MenuState.SELECT_CAR_4_ICON] = MenuState.SELECT_CAR_4_ICON
+DOWN[MenuState.CONFIRM_RESTART] = MenuState.CONFIRM_RESTART
+DOWN[MenuState.CONFIRM_RESET] = MenuState.CONFIRM_RESET
 
 # Menu transitions when the joystick is pushed LEFT
 LEFT = {}
@@ -258,19 +283,23 @@ LEFT[MenuState.RACE_TIMEOUT] = MenuState.CONFIGURE
 LEFT[MenuState.WIFI_SETUP] = MenuState.CONFIGURE
 LEFT[MenuState.WIFI_SSID] = MenuState.WIFI_SETUP
 LEFT[MenuState.WIFI_PSWD] = MenuState.WIFI_SETUP
+LEFT[MenuState.WIFI_REGION] = MenuState.WIFI_SETUP
 LEFT[MenuState.COORDINATOR_SETUP] = MenuState.CONFIGURE
 LEFT[MenuState.COORD_HOSTNAME] = MenuState.COORDINATOR_SETUP
 LEFT[MenuState.COORD_PORT] = MenuState.COORDINATOR_SETUP
 LEFT[MenuState.SERVO_LIMITS] = MenuState.CONFIGURE
 LEFT[MenuState.SERVO_DOWN_VALUE] = MenuState.SERVO_LIMITS
 LEFT[MenuState.SERVO_UP_VALUE] = MenuState.SERVO_LIMITS
-LEFT[MenuState.RESET] = MenuState.CONFIGURE
+LEFT[MenuState.RESET_RESTART_SETUP] = MenuState.CONFIGURE
+LEFT[MenuState.PERFORM_RESET] = MenuState.RESET_RESTART_SETUP
+LEFT[MenuState.PERFORM_RESTART] = MenuState.RESET_RESTART_SETUP
 LEFT[MenuState.ENTER_TRACK_NAME] = MenuState.TRACK_NAME
 LEFT[MenuState.ENTER_NUM_LANES] = MenuState.NUM_LANES
 LEFT[MenuState.ENTER_CIRCUIT_NAME] = MenuState.CIRCUIT_NAME
 LEFT[MenuState.ENTER_RACE_TIMEOUT] = MenuState.RACE_TIMEOUT
 LEFT[MenuState.ENTER_WIFI_SSID] = MenuState.WIFI_SSID
 LEFT[MenuState.ENTER_WIFI_PSWD] = MenuState.WIFI_PSWD
+LEFT[MenuState.ENTER_WIFI_REGION] = MenuState.WIFI_REGION
 LEFT[MenuState.ENTER_COORD_HOSTNAME] = MenuState.COORD_HOSTNAME
 LEFT[MenuState.ENTER_COORD_PORT] = MenuState.COORD_PORT
 LEFT[MenuState.ENTER_SERVO_UP_VALUE] = MenuState.SERVO_LIMITS
@@ -279,6 +308,8 @@ LEFT[MenuState.SELECT_CAR_1_ICON] = MenuState.CAR_1_ICON
 LEFT[MenuState.SELECT_CAR_2_ICON] = MenuState.CAR_2_ICON
 LEFT[MenuState.SELECT_CAR_3_ICON] = MenuState.CAR_3_ICON
 LEFT[MenuState.SELECT_CAR_4_ICON] = MenuState.CAR_4_ICON
+LEFT[MenuState.CONFIRM_RESTART] = MenuState.CONFIRM_RESTART
+LEFT[MenuState.CONFIRM_RESET] = MenuState.CONFIRM_RESET
 
 # Menu transitions when the joystick button is pressed
 SELECT = {}
@@ -297,11 +328,11 @@ SELECT[MenuState.RACE_TIMEOUT] = MenuState.ENTER_RACE_TIMEOUT
 SELECT[MenuState.WIFI_SETUP] = MenuState.WIFI_SSID
 SELECT[MenuState.WIFI_SSID] = MenuState.ENTER_WIFI_SSID
 SELECT[MenuState.WIFI_PSWD] = MenuState.ENTER_WIFI_PSWD
+SELECT[MenuState.WIFI_REGION] = MenuState.ENTER_WIFI_REGION
 SELECT[MenuState.COORDINATOR_SETUP] = MenuState.COORD_HOSTNAME
 SELECT[MenuState.COORD_HOSTNAME] = MenuState.ENTER_COORD_HOSTNAME
 SELECT[MenuState.COORD_PORT] = MenuState.ENTER_COORD_PORT
 SELECT[MenuState.SERVO_LIMITS] = MenuState.SERVO_DOWN_VALUE
-SELECT[MenuState.RESET] = MenuState.RESET
 SELECT[MenuState.ENTER_TRACK_NAME] = MenuState.ENTER_TRACK_NAME
 SELECT[MenuState.ENTER_NUM_LANES] = MenuState.ENTER_NUM_LANES
 SELECT[MenuState.ENTER_CIRCUIT_NAME] = MenuState.ENTER_CIRCUIT_NAME
@@ -316,6 +347,9 @@ SELECT[MenuState.SELECT_CAR_1_ICON] = MenuState.SELECT_CAR_1_ICON
 SELECT[MenuState.SELECT_CAR_2_ICON] = MenuState.SELECT_CAR_2_ICON
 SELECT[MenuState.SELECT_CAR_3_ICON] = MenuState.SELECT_CAR_3_ICON
 SELECT[MenuState.SELECT_CAR_4_ICON] = MenuState.SELECT_CAR_4_ICON
+SELECT[MenuState.RESET_RESTART_SETUP] = MenuState.PERFORM_RESTART
+SELECT[MenuState.PERFORM_RESTART] = MenuState.CONFIRM_RESTART
+SELECT[MenuState.PERFORM_RESET] = MenuState.CONFIRM_RESET
 
 # Text string displayed for each menu position
 TEXT = {}
@@ -334,13 +368,14 @@ TEXT[MenuState.RACE_TIMEOUT] = "Race Timeout"
 TEXT[MenuState.WIFI_SETUP] = "WiFi Setup"
 TEXT[MenuState.WIFI_SSID] = "WiFi SSID"
 TEXT[MenuState.WIFI_PSWD] = "WiFi Password"
+TEXT[MenuState.WIFI_REGION] = "WiFi Region"
 TEXT[MenuState.COORDINATOR_SETUP] = "Coordinator"
 TEXT[MenuState.COORD_HOSTNAME] = "Coordinator Hostname"
 TEXT[MenuState.COORD_PORT] = "Coordinator Port"
 TEXT[MenuState.SERVO_LIMITS] = "Servo Limits"
 TEXT[MenuState.SERVO_DOWN_VALUE] = "Servo Down Value"
 TEXT[MenuState.SERVO_UP_VALUE] = "Servo Up Value"
-TEXT[MenuState.RESET] = "Factory Reset"
+TEXT[MenuState.RESET_RESTART_SETUP] = "Reset | Restart"
 
 # Display function to call based on current menu position
 FUNCTION = {}
@@ -351,7 +386,6 @@ class Menu:
     method, process_menus(), to perform all menu operations.
 
     process_menus() updates the global config settings
-
     """
 
 # PUBLIC
@@ -382,6 +416,39 @@ class Menu:
         if self.config_updated:
             self.config.save()
 
+
+    @staticmethod
+    def break_string(text: str, max_len: int) -> list[str]:
+        """
+        Helper function shared with Display class.  Splits text into a list of
+        strings each with a maximum length of max_len.
+        """
+        if not text:
+            return []
+
+        words = text.split()
+        result = []
+        current_chunk = []
+        current_length = 0
+
+        for word in words:
+            word_len = len(word)
+            # Check if adding the word exceeds max_len
+            # Account for space between words if current_chunk is not empty
+            extra = 1 if current_chunk else 0
+            if current_length + word_len + extra > max_len and current_chunk:
+                result.append(" ".join(current_chunk))
+                current_chunk = [word]
+                current_length = word_len
+            else:
+                current_chunk.append(word)
+                current_length += word_len + extra
+
+        if current_chunk:
+            result.append(" ".join(current_chunk))
+
+        return result
+
 # PRIVATE
 
     def __init__(self, font, config):
@@ -390,6 +457,7 @@ class Menu:
 
         self.input = Input(self.font)
         self.device = DeviceIO()
+        self.wifi = WiFi()
         self.race_type = None
 
         # The config object passed in was modified by the user within the configuration menu
@@ -404,14 +472,17 @@ class Menu:
         self.servo_down_value_updated = False
         self.servo_up_value_updated = False
 
-        self.cursor_pos = MenuState.SINGLE_TRACK         # Start at the top of the main menu
-        self.current_func = self.__top_menu              # Dispaly loop calls __top_menu function
-        self.config_window_top = MenuState.TRACK_NAME    # Initial config menu window top
-        self.config_window_bottom = MenuState.TRACK_NAME # Initial config menu window bottom
-        self.config_menu_pos = self.config_window_top    # Initial window position for config menu
-        self.config_menu_first = MenuState.TRACK_NAME    # Top of config menu, up wraps
-        self.config_menu_last = MenuState.RESET          # Bottom of config menu, down wraps
-        self.last_cursor_pos = MenuState.RESET
+        # Button was pressed to cancel Reset or Restart option
+        self.button_pressed = False
+
+        self.cursor_pos = MenuState.SINGLE_TRACK          # Start at the top of the main menu
+        self.current_func = self.__top_menu               # Dispaly loop calls __top_menu function
+        self.config_window_top = MenuState.TRACK_NAME     # Initial config menu window top
+        self.config_window_bottom = MenuState.TRACK_NAME  # Initial config menu window bottom
+        self.config_menu_pos = self.config_window_top     # Initial window position for config menu
+        self.config_menu_first = MenuState.TRACK_NAME     # Top of config menu, up wraps
+        self.config_menu_last = MenuState.RESET_RESTART_SETUP # Bottom of config menu, down wraps
+        self.last_cursor_pos = MenuState.RESET_RESTART_SETUP
         self.__init_function_pointers()
 
         # Initialize attributes used for selecting car images
@@ -461,19 +532,23 @@ class Menu:
         FUNCTION[MenuState.WIFI_SETUP] = self.__config_menu
         FUNCTION[MenuState.WIFI_SSID] = self.__wifi_menu
         FUNCTION[MenuState.WIFI_PSWD] = self.__wifi_menu
+        FUNCTION[MenuState.WIFI_REGION] = self.__wifi_menu
         FUNCTION[MenuState.COORDINATOR_SETUP] = self.__config_menu
         FUNCTION[MenuState.COORD_HOSTNAME] = self.__controller_menu
         FUNCTION[MenuState.COORD_PORT] = self.__controller_menu
         FUNCTION[MenuState.SERVO_LIMITS] = self.__config_menu
         FUNCTION[MenuState.SERVO_DOWN_VALUE] = self.__servo_menu
         FUNCTION[MenuState.SERVO_UP_VALUE] = self.__servo_menu
-        FUNCTION[MenuState.RESET] = self.__config_menu
+        FUNCTION[MenuState.RESET_RESTART_SETUP] = self.__config_menu
+        FUNCTION[MenuState.PERFORM_RESTART] = self.__reset_restart_menu
+        FUNCTION[MenuState.PERFORM_RESET] = self.__reset_restart_menu
         FUNCTION[MenuState.ENTER_TRACK_NAME] = self.__enter_track_name
         FUNCTION[MenuState.ENTER_NUM_LANES] = self.__enter_num_lanes
         FUNCTION[MenuState.ENTER_CIRCUIT_NAME] = self.__enter_circuit_name
         FUNCTION[MenuState.ENTER_RACE_TIMEOUT] = self.__enter_race_timeout
         FUNCTION[MenuState.ENTER_WIFI_SSID] = self.__enter_wifi_ssid
         FUNCTION[MenuState.ENTER_WIFI_PSWD] = self.__enter_wifi_pswd
+        FUNCTION[MenuState.ENTER_WIFI_REGION] = self.__enter_wifi_region
         FUNCTION[MenuState.ENTER_COORD_HOSTNAME] = self.__enter_coord_host
         FUNCTION[MenuState.ENTER_COORD_PORT] = self.__enter_coord_port
         FUNCTION[MenuState.ENTER_SERVO_DOWN_VALUE] = self.__enter_servo_down
@@ -482,6 +557,8 @@ class Menu:
         FUNCTION[MenuState.SELECT_CAR_2_ICON] = self.__select_car_2_icon
         FUNCTION[MenuState.SELECT_CAR_3_ICON] = self.__select_car_3_icon
         FUNCTION[MenuState.SELECT_CAR_4_ICON] = self.__select_car_4_icon
+        FUNCTION[MenuState.CONFIRM_RESTART] = self.__perform_restart
+        FUNCTION[MenuState.CONFIRM_RESET] = self.__perform_reset
 
     def __top_menu(self):
         """
@@ -508,7 +585,7 @@ class Menu:
         self.config_menu_pos = self.config_window_top   # start at top of current window
         for idx in range(4):
             self.__menu_line(self.config_menu_pos, 10, idx*56+16, 210, 40, 26)
-            if self.config_window_top == MenuState.RESET:
+            if self.config_window_top == MenuState.RESET_RESTART_SETUP:
                 break
             self.config_menu_pos = self.config_menu_pos.next()
         self.config_window_bottom = self.config_menu_pos
@@ -532,8 +609,9 @@ class Menu:
         """
 
         self.__text_box("WiFi:",    00,   0, 210, 40, 28)
-        self.__text_box("SSID",     10,  53, 210, 40, 28, self.cursor_pos == MenuState.WIFI_SSID)
-        self.__text_box("Password", 10, 146, 210, 40, 28, self.cursor_pos == MenuState.WIFI_PSWD)
+        self.__text_box("SSID",     10,  54, 210, 40, 28, self.cursor_pos == MenuState.WIFI_SSID)
+        self.__text_box("Password", 10, 104, 210, 40, 28, self.cursor_pos == MenuState.WIFI_PSWD)
+        self.__text_box("Region",   10, 154, 210, 40, 28, self.cursor_pos == MenuState.WIFI_REGION)
 
     def __controller_menu(self):
         """
@@ -612,7 +690,7 @@ class Menu:
         if circuit_name and (circuit_name != self.config.circuit):
             self.config.circuit = circuit_name
             self.config_updated = True
-        self.__display_setting(TEXT[MenuState.CIRCUIT_NAME], self.config.circuit_name)
+        self.__display_setting(TEXT[MenuState.CIRCUIT_NAME], self.config.circuit)
         self.cursor_pos = MenuState.CIRCUIT_NAME
 
     def __enter_coord_host(self):
@@ -687,6 +765,15 @@ class Menu:
         self.cursor_pos = MenuState.RACE_TIMEOUT
         self.config_updated = self.config.race_timeout != original_timeout
 
+    def __update_wifi(self):
+        """
+        If the WiFi configuration changed and is complete, connect to
+        the new WiFi network.
+        """
+        wifi_config_valid = self.config.wifi_ssid and self.config.wifi_pswd
+        if self.config_updated and wifi_config_valid:
+            self.wifi.connect(self.config.wifi_ssid, self.config.wifi_pswd)
+
     def __enter_wifi_pswd(self):
         """
         Perform action to enter WiFi password
@@ -696,6 +783,7 @@ class Menu:
             self.config.wifi_pswd = wifi_pswd
             self.config_updated = True
         self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], self.config.wifi_pswd)
+        self.__update_wifi()
         self.cursor_pos = MenuState.WIFI_PSWD
 
     def __enter_wifi_ssid(self):
@@ -710,7 +798,28 @@ class Menu:
             self.config.wifi_ssid = wifi_ssid
             self.config_updated = True
         self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], self.config.wifi_ssid)
+        self.__update_wifi()
         self.cursor_pos = MenuState.WIFI_SSID
+
+    def __enter_wifi_region(self):
+        """
+        Perform action to enter WiFi region code
+
+        TODO: Get list of valid IEEE 802.11 registration domains and implement chooser
+              rather entering any arbitrary two letter
+        """
+        wifi_region = self.input.get_string()
+        if len(wifi_region) != 2:
+            self.__display_message("WiFi Region must be 2 characters", duration=5.0, color=RED)
+            self.cursor_pos = MenuState.WIFI_REGION
+            return
+
+        if wifi_region and (wifi_region != self.config.wifi_region):
+            self.config.wifi_region = wifi_region
+            self.config_updated = True
+        self.__display_setting(TEXT[MenuState.COORD_HOSTNAME], self.config.wifi_region)
+        self.wifi.set_region(wifi_region)
+        self.cursor_pos = MenuState.WIFI_REGION
 
     def __servo_menu(self):
         """
@@ -782,6 +891,75 @@ class Menu:
         self.__display_setting(TEXT[MenuState.TRACK_NAME], self.config.track_name)
         self.cursor_pos = MenuState.TRACK_NAME
 
+    def __reset_restart_menu(self):
+        """
+        Display Reset or Restart menu
+        """
+        self.__text_box("Restart or Reset:",  0,   0, 230, 40, 28)
+        self.__text_box("Restart",  10,  53, 210, 40, 28,
+                        self.cursor_pos == MenuState.PERFORM_RESTART)
+        self.__text_box("Reset Config", 10, 146, 210, 40, 28,
+                        self.cursor_pos == MenuState.PERFORM_RESET)
+
+    def __perform_reset(self):
+        """
+        Reset config to defaults
+        """
+        print("__perform_reset")
+        self.button_pressed = False
+        end_time = time.monotonic() + 3.0
+        remaining_time = end_time - time.monotonic()
+
+        self.device.push_key_handlers(self.__button_pressed, self.__button_pressed,
+                                      self.__button_pressed, self.__joystick_pressed)
+
+        pyray.end_drawing()
+        while not self.button_pressed and (remaining_time > 0.0):
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            self.__text_box("Reset Config:",  0,   0, 210, 40, 28)
+            self.__text_box(f"Resetting in {math.ceil(remaining_time)} sec",  10,  53, 210, 40, 24)
+            self.__text_box("Any key to abort",  10,  100, 210, 40, 24)
+            pyray.end_drawing()
+            remaining_time = end_time - time.monotonic()
+
+        if not self.button_pressed:
+            self.config.reset()
+
+        self.device.pop_key_handlers()
+        self.cursor_pos = MenuState.RESET_RESTART_SETUP
+
+    def __perform_restart(self):
+        """
+        Restart the Starting Gate
+        """
+        print("__perform_resart")
+        self.button_pressed = False
+        end_time = time.monotonic() + 3.0
+        remaining_time = end_time - time.monotonic()
+
+        self.device.push_key_handlers(self.__button_pressed, self.__button_pressed,
+                                      self.__button_pressed, self.__joystick_pressed)
+
+        pyray.end_drawing()
+        while not self.button_pressed and (remaining_time > 0.0):
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            self.__text_box("Restart Starting Gate:",  0,   0, 210, 40, 28)
+            self.__text_box(f"Restarting in {math.ceil(remaining_time)} sec",  10,  53, 210, 40, 24)
+            self.__text_box("Any key to abort",  10,  100, 210, 40, 24)
+            pyray.end_drawing()
+            remaining_time = end_time - time.monotonic()
+
+        if not self.button_pressed:
+            sys.exit()
+
+        self.device.pop_key_handlers()
+        self.cursor_pos = MenuState.RESET_RESTART_SETUP
+
+
     def __joystick(self, btn):
         """
         Process joystick action.
@@ -834,6 +1012,18 @@ class Menu:
         print("menu: key3 pressed, self=", self)
         self.cursor_pos = MenuState.TRACK_NAME
 
+
+    def __button_pressed(self):
+        """
+        Callback function that sets self.button_pressed
+        """
+        self.button_pressed = True
+
+    def __joystick_pressed(self, btn): # pylint: disable=unused-argument
+        """
+        Callback function that sets self.button_pressed on any joystick action
+        """
+        self.button_pressed = True
 
     def __key_noop(self):
         """
@@ -937,7 +1127,7 @@ class Menu:
         self.config.servo_up_value = min(self.config.servo_up_value, 1.0)
 
 
-    def __text_box(self, text, x, y, width, height, size, gray=False):
+    def __text_box(self, text, x, y, width, height, size, gray=False, text_color=BLACK):
         """
         Draw a box at position (x,y) with specified width and height.
         Display text with point size size within the box.
@@ -948,9 +1138,7 @@ class Menu:
         else:
             pyray.draw_rectangle_rec([x, y, width, height], WHITE)
         pyray.draw_rectangle_lines(x, y, width, height, BLACK)
-        #pyray.draw_text_rec(self.font, text, [x+10, y+5, width-10, height-5],
-        #                         size, 5.0, True, BLACK)
-        pyray.draw_text_ex(self.font, text, [x+10, y+5], size, 1.0, BLACK)
+        pyray.draw_text_ex(self.font, text, [x+10, y+5], size, 1.0, text_color)
 
     def __menu_line(self, state, x, y, width, height, size):
         """
@@ -958,14 +1146,33 @@ class Menu:
         """
         self.__text_box(TEXT[state], x, y, width, height, size, self.cursor_pos == state)
 
-    def __display_setting(self, config, value):
+    def __display_setting(self, config, value, duration=1.0):
+        """
+        Display two lines: a configuration setting and its value
+        """
         display_start = time.monotonic()
-        while time.monotonic() - display_start < 1.0:
+        while time.monotonic() - display_start < duration:
             pyray.begin_drawing()
             pyray.clear_background(RAYWHITE)
             pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.__text_box(config, 00,   0, 240, 40, 28)
             self.__text_box(value,  10,  53, 210, 40, 28)
+            pyray.end_drawing()
+
+
+    def __display_message(self, message, duration=1.0, color=BLACK):
+        """
+        Display a message for the specified amount of time (default 1 second)
+        """
+        display_start = time.monotonic()
+        lines = self.break_string(message, 18)
+        num_lines = len(lines)
+        wrapped = "\n".join(lines)
+        while time.monotonic() - display_start < duration:
+            pyray.begin_drawing()
+            pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
+            self.__text_box(wrapped, 0, 5, 240, 40*num_lines, 28, text_color=color)
             pyray.end_drawing()
 
 def main():

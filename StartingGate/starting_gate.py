@@ -7,13 +7,6 @@ Starting Gate:
     It coordinates with the Finish Line component to run races locally, and the
     Race Coordinator for multi-track races.
 
- TODO:
-       Clean up startup process
-         * After exchanging HELLO messages, request version from FL
-         * Do version check on SG
-         * Only if update needed, send UPFW command w/ bluetooth SSID and password
-       Send encoded WiFI parameters to Finish Line if firmware update needed
-
 Author: Tom Quiggle
 tquiggle@gmail.com
 https://github.com/tquiggle/Die-Cast-Remote-Raceway
@@ -108,18 +101,22 @@ def calculate_results(config, coordinator, finish_times):
     results = []
 
     for lane in range(num_lanes):
+        print(f"calculate_results(): lane={lane} of {num_lanes}")
         result = {}
         result["trackName"] = config.track_name
-        result["laneNumber"] = lane + 1
+        result["laneNumber"] = lane
         result["laneTime"] = finish_times[lane]
+        print(f"   appending {result}")
         results.append(result)
 
     results.sort(key=operator.itemgetter('laneTime'))
 
     # Send local results to race coordinator and await global results
     if config.multi_track:
+        print(f"Sending local results to coordinator: {results}")
         results_string = coordinator.results(results)
         results = json.loads(results_string)
+        print(f"Received global results from coordinator: {results}")
 
     return results
 
@@ -208,9 +205,7 @@ def run_race(config, coordinator, display, finish_line):
 
     while not all_lanes_finished() and not race_aborted and time.monotonic_ns() < timeout:
         msg = finish_line.get_lane_result(100)
-        print(f"received: {msg}")
-
-        if msg.startswith("FIN"):
+        if msg and msg.startswith("FIN"):
             lane_finished(lane_index(msg), finish_times)
 
     # Send end of race message to Finish Line to disable further completion messages
@@ -233,7 +228,6 @@ def main():
     Configure starting_gate and run races
     """
 
-    #config = Config("/home/pi/config/starting_gate.json")
     config = Config("config/starting_gate.json")
     display = Display(config)
     device = DeviceIO()
@@ -262,12 +256,14 @@ def main():
         if not finish_line.is_connected() and not race_aborted:
             display.wait_finish_line()
             finish_line.connect()
+            finish_line.update_software()
 
         # Register with the race coordinator if multi-track race selected in menu
         if config.multi_track:
             display.wait_remote_registration()
             coordinator.register()
-            display.remote_registration_done()
+
+        display.race_configuration_done()
 
         while not race_aborted:
             try:

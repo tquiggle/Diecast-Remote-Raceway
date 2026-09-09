@@ -69,6 +69,23 @@ def car_4_present():
     """
     return LANE4.value
 
+def car_present(car_index):
+    """
+    Returns True if the ZERO BASED car number is present
+    """
+    match car_index:
+        case 0:
+            return car_1_present()
+        case 1:
+            return car_2_present()
+        case 2:
+            return car_3_present()
+        case 3:
+            return car_4_present()
+        case _:
+            return 0
+
+
 def default_key_1_handler():
     """
     Default handler to call when key 1 is pressed and no application handler is registered
@@ -207,8 +224,12 @@ def main():
     print("Creating DeviceIO instance")
     device_io = DeviceIO()
 
-    print("Sleeping for 5 minutes")
-    time.sleep(300)
+    for __ in range(30):
+        print(f"car_1_present()={car_1_present()}")
+        print(f"car_2_present()={car_2_present()}")
+        print(f"car_3_present()={car_3_present()}")
+        print(f"car_4_present()={car_4_present()}")
+        time.sleep(1)
 
     device_io.pop_key_handlers()
 

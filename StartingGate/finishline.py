@@ -231,7 +231,7 @@ class FinishLine:
         base64_encrypted_psk_bytes = base64.b64encode(encrypted_psk)
         base64_encrypted_psk_string = base64_encrypted_psk_bytes.decode("utf-8")
 
-        url = f"{self.config.distribution_url}/FL/version.txt"
+        url = f"{self.config.distribution_url}/FL{release_version}.bin"
 
         update_argument = {
             "SSID": essid,
@@ -253,7 +253,7 @@ class FinishLine:
         """
         Fetches version.txt containing latest release version from the distribution server
         """
-        version_url = f"{self.config.distribution_url}/FL/version.txt"
+        version_url = f"{self.config.distribution_url}/version.txt"
         print("Fetching latest version number from ", version_url)
         try:
             with urllib.request.urlopen(version_url) as response:

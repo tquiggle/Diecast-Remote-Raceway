@@ -5,13 +5,14 @@ Diecast Remote Raceway - Display
 
 The Display module implements the race UI on the Waveshare 1.3 inch LCD HAT.
 
-At present, the code only supports 2-lane tracks.  The logic needs to be generalized to
-support 1 to 4 lanes per track for both tracks. Rendering 8 lanes in an intelligible manner
-will be a challenge.
+The race logic can manage one or two tracks, each with one to four lanes.  Given
+the limited display space on the 1.3" display, at most 5 lanes are rendered.
 
-The code currently contains numerous hard-coded numeric values to represent screen x,y
-coordinates.  A future rewrite will move all screen coordinates into lookup tables
-indexed by number of tracks and number of lanes per track.
+For a single track race, all lanes are rendered.
+
+For a two track race, all local lanes are always rendered. If the total number of
+lanes across both tracks exceedes 5, the remote lanes beyond 5 will be "superimposed"
+on the final lane.
 
 Author: Tom Quiggle
 tquiggle@gmail.com
@@ -24,27 +25,31 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 """
 
 import enum
+import math
 import random
+import sys
 import threading
 import time
 
+from pathlib import Path
+
 import pyray
 from pyray import WHITE, RAYWHITE, GRAY, BLACK, ORANGE
-
 from config import CAR1, CAR2, CAR3, CAR4, Config, NOT_FINISHED #pylint: disable=unused-import
-from deviceio import car_1_present, car_2_present
+from deviceio import car_present
 from menu import Menu
 
 @enum.unique
-class RaceState(enum.Enum):
+class RaceState(enum.IntEnum):
     """
     Enumerate the states a race goes through. Used to determine what to display.
     """
+
     WAIT_MENU = 0                # Waiting for top menu input: 1 track, 2 tracks or configure
     MENU_DONE = 1                # Menu selection made, waiting for next state
     WAIT_FINISH_LINE = 2         # Waiting for Bluetooth connection to the Finish Line
     WAIT_REMOTE_REGISTRATION = 3 #   " for remote track to register in our circuit
-    REMOTE_REGISTRATION_DONE = 4 # Remote registration is complete. Load remote icons.
+    RACE_CONFIGURATION_DONE  = 4 # Local and remote configuratin is complete. Finish initialization
     WAIT_LOCAL_READY = 5         # Waiting for local track to have cars in each position
     WAIT_REMOTE_READY = 6        #   " for remote track to have cars in its starting gate
     COUNTDOWN = 7                # All tracks ready, perform 3 second countdown
@@ -93,15 +98,15 @@ class Display(threading.Thread):
         """
         self.state = RaceState.WAIT_REMOTE_REGISTRATION
 
-    def remote_registration_done(self):
+    def race_configuration_done(self):
         """
         The coordinator completed the registration call and returned the remote car icons.
         Load the appropriate textures for the race display.
         """
-        self.registration_event.clear()
-        self.remote_icons_loaded = False
-        self.state = RaceState.REMOTE_REGISTRATION_DONE
-        self.registration_event.wait()
+        self.configuration_event.clear()
+        self.configuration_loaded = False
+        self.state = RaceState.RACE_CONFIGURATION_DONE
+        self.configuration_event.wait()
 
     def wait_local_ready(self):
         """
@@ -162,8 +167,9 @@ class Display(threading.Thread):
 
 # PRIVATE
 
-    # Maximum distance a car can travel in the race display
-    _MAX_Y = 150
+    _MAX_Y = 150             # Maximum distance a car can travel in the race display
+    _MAX_DISPLAY_LANES = 5   # Maximum number of lanes to display
+    _MAX_LANES_PER_TRACK = 4 # Maximum possible number of lanes in a track
 
     __instance = None
 
@@ -172,33 +178,31 @@ class Display(threading.Thread):
         Load appropriate sized textures based on the number of tracks (and lanes)
         """
 
+        print("__load_textures():")
+
         multi_track = self.config.multi_track
 
-        if multi_track:
+        self.y_starting_offset = 40 if multi_track else 10
+
+        if self.display_lane_count > 3:
             banner_size = 48
             car_icon_size = 24
             checkerboard_size = 34
-            y_starting_offset = 40
         else:
             banner_size = 96
             car_icon_size = 48
             checkerboard_size = 64
-            y_starting_offset = 10
 
-        # Load the background image
-        background_image = pyray.load_image("images/raceoff-2.png")
-        self.background_texture = pyray.load_texture_from_image(background_image)
-        pyray.unload_image(background_image)
-        self.y_starting_offset = y_starting_offset
+        self.checkerboard_size = checkerboard_size
+        checkerboard_image = pyray.load_image(f"images/checkerboard-{checkerboard_size}.png")
+        question_image = pyray.load_image(f"cars/question-{car_icon_size}.png")
 
-        checkerboard_image = pyray.load_image(
-            "images/checkerboard-{}.png".format(checkerboard_size))
-        question_image = pyray.load_image("cars/question-{}.png".format(car_icon_size))
+        first_image = pyray.load_image(f"images/1st-{banner_size}.png")
+        second_image = pyray.load_image(f"images/2nd-{banner_size}.png")
+        third_image = pyray.load_image(f"images/3rd-{banner_size}.png")
+        fail_image = pyray.load_image(f"images/fail-{banner_size}.png")
 
-        first_image = pyray.load_image("images/1st-{}.png".format(banner_size))
-        second_image = pyray.load_image("images/2nd-{}.png".format(banner_size))
-        third_image = pyray.load_image("images/3rd-{}.png".format(banner_size))
-        fail_image = pyray.load_image("images/fail-{}.png".format(banner_size))
+        self.banner_size = banner_size
 
         # Load textures into VRAM
         self.checkerboard_texture = pyray.load_texture_from_image(checkerboard_image)
@@ -211,21 +215,34 @@ class Display(threading.Thread):
 
         self.place_textures = [first_texture, second_texture, third_texture]
 
+        car_index = 0
         # Load car textures for local track
+        print(f"__load_textures(): num_lanes={self.config.num_lanes}")
         for car in range(self.config.num_lanes):
             icon = self.config.car_icons[car]
-            image = pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
-            self.local_textures[car] = pyray.load_texture_from_image(image)
+            print(f"loading image[{car_index}]: cars/{icon}-{car_icon_size}.png")
+            image = pyray.load_image(f"cars/{icon}-{car_icon_size}.png")
+            self.car_textures[car_index] = pyray.load_texture_from_image(image)
             pyray.unload_image(image)
+            car_index += 1
 
         if multi_track:
             # Load car textures for remote track
+            print(f"__load_textures(): remote_num_lanes={self.config.remote_num_lanes}")
             for car in range(self.config.remote_num_lanes):
                 icon = self.config.remote_car_icons[car]
-                # TODO: Handle error condition where remote image isn't found locally
-                image = pyray.load_image("cars/{}-{}.png".format(icon, car_icon_size))
-                self.remote_textures[car] = pyray.load_texture_from_image(image)
+                filename = f"cars/{icon}-{car_icon_size}.png"
+                if not Path(filename).is_file():
+                    # Remote track has icons we dont.  Substitute a random car image
+                    # that exists locally
+                    print(f"Car icon file {filename} not found locally. Substituting")
+                    filename = self.__get_random_car_image(car_icon_size)
+
+                print(f"loading image[{car}]: {filename}")
+                image = pyray.load_image(filename)
+                self.car_textures[car_index] = pyray.load_texture_from_image(image)
                 pyray.unload_image(image)
+                car_index += 1
 
         # Unload image data from CPU memory
         pyray.unload_image(checkerboard_image)
@@ -259,7 +276,7 @@ class Display(threading.Thread):
             RaceState.MENU_DONE: self.__menu_done,
             RaceState.WAIT_FINISH_LINE: self.__wait_finish_line,
             RaceState.WAIT_REMOTE_REGISTRATION: self.__wait_remote_registration,
-            RaceState.REMOTE_REGISTRATION_DONE: self.__remote_registration_done,
+            RaceState.RACE_CONFIGURATION_DONE: self.__race_configuration_done,
             RaceState.WAIT_LOCAL_READY: self.__wait_local_ready,
             RaceState.WAIT_REMOTE_READY: self.__wait_remote_ready,
             RaceState.COUNTDOWN: self.__countdown,
@@ -268,24 +285,34 @@ class Display(threading.Thread):
             RaceState.RACE_TIMEOUT: self.__race_timeout
         }
 
+        # Intialize lane counts
+        self.local_lane_count = self.config.num_lanes
+        self.remote_lane_count = self.config.remote_num_lanes
+        self.total_lane_count = self.local_lane_count + self.remote_lane_count
+        self.display_lane_count = min(self.total_lane_count, Display._MAX_DISPLAY_LANES)
+
         # Declare initial Y offset for car images at the start of a race
         self.y_starting_offset = 0
-        self.local_y = [0, 0, 0, 0]
-        self.remote_y = [0, 0, 0, 0]
+        self.car_y_position = [0] * (Display._MAX_LANES_PER_TRACK * 2)
+        self.car_x_position = [0] * (Display._MAX_LANES_PER_TRACK * 2)
+        self.track_separator_x_offset = 0
+        self.remote_name_width = 0
 
-        # Declare local texture variables. __load_textures() will load the appropriate
-        # textures based on whether a single or multi track race is selected.
+        # Initialize textures
         self.background_texture = None
-
-        self.local_textures = [None, None, None, None]
-        self.remote_textures = [None, None, None, None]
-
+        self.car_textures = [None] * (Display._MAX_LANES_PER_TRACK * 2)
         self.checkerboard_texture = None
         self.question_texture = None
         self.place_textures = []
         self.fail_texture = None
 
+        self.lane_dimensions = []
+        self.lane_width = 0
+        self.banner_size = 0
+        self.checkerboard_size = 0
+
         self.countdown_start = None
+        self.last_debug_print = 0.0
         self.font = None
         self.menu = None
         self.results = None
@@ -297,9 +324,9 @@ class Display(threading.Thread):
         self.countdown_event = threading.Event()
         self.countdown_event.clear()
 
-        self.remote_icons_loaded = False
-        self.registration_event = threading.Event()
-        self.registration_event.clear()
+        self.configuration_loaded = False
+        self.configuration_event = threading.Event()
+        self.configuration_event.clear()
 
         self.state = RaceState.WAIT_MENU
         self.running = True
@@ -318,15 +345,20 @@ class Display(threading.Thread):
         self.font = pyray.load_font("fonts/Roboto-Black.ttf")
         self.menu = Menu(self.font, self.config)
 
+        # Load the background image
+        background_image = pyray.load_image("images/raceoff-2.png")
+        self.background_texture = pyray.load_texture_from_image(background_image)
+        pyray.unload_image(background_image)
+
         while self.running and not pyray.window_should_close():
             # Draw common background used for all displays
             pyray.begin_drawing()
             pyray.clear_background(RAYWHITE)
+            pyray.draw_texture(self.background_texture, 0, 0, WHITE)
 
-            if self.state != RaceState.WAIT_MENU:
+            if self.state > RaceState.RACE_CONFIGURATION_DONE:
                 # A common background is displayed for all race states after leaving the
                 # main menu.
-                pyray.draw_texture(self.background_texture, 0, 0, WHITE)
                 self.__draw_lanes()
 
             # Dispatch to appropriate drawing routine based on current race state
@@ -334,16 +366,11 @@ class Display(threading.Thread):
             pyray.end_drawing()
 
     def __reset_car_positions(self):
-        for car in range(self.config.num_lanes):
-            self.local_y[car] = self.y_starting_offset
-        if self.config.multi_track:
-            for car in range(self.config.remote_num_lanes):
-                self.remote_y[car] = self.y_starting_offset
+        for car in range(self.total_lane_count):
+            self.car_y_position[car] = self.y_starting_offset
 
     def __text_box_dense(self, text, x, y, width, height, size):
         pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-        #pyray.draw_text_rec(self.font, text, [x+2, y+2, width-2, height-2], size, 2,
-        #                         True, BLACK)
         pyray.draw_text_ex(self.font, text, [x+2, y+2], size, 1.0, BLACK)
 
     def __text_box(self, text, x, y, width, height, size, inverted=False):
@@ -358,20 +385,6 @@ class Display(threading.Thread):
             pyray.draw_rectangle_rec([x, y, width, height], WHITE)
             pyray.draw_text_ex(self.font, text, [x+10, y+2], size, 1.0, BLACK)
 
-    def __text_box2(self, text1, text2, x, y, width, height, size, inverted=False):
-        """
-        Draws a box at location (x,y) with width and height.
-        Prints two lines of text with specified font size.
-        """
-        pyray.draw_rectangle_lines(x, y, width, height, BLACK)
-        if inverted:
-            pyray.draw_rectangle_rec([x, y, width, height], GRAY)
-            pyray.draw_text_ex(self.font, text1, [x+10, y+2], size, 1.0, WHITE)
-            pyray.draw_text_ex(self.font, text2, [x+10, y+2+height/2], size, 1.0, WHITE)
-        else:
-            pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-            pyray.draw_text_ex(self.font, text1, [x+10, y+2], size, 1.0, BLACK)
-            pyray.draw_text_ex(self.font, text2, [x+10, y+2+height/2], size, 1.0, BLACK)
 
     @staticmethod
     def __font_size(text):
@@ -385,99 +398,133 @@ class Display(threading.Thread):
             return 26
         return 24
 
-    def __text_message(self, text, inverted=False):
-        if len(text) >= 16:
-            # Two line text box
-            # Split text at first space before character 16
-            split_pos = 16
-            while split_pos > 0 and text[split_pos] != ' ' and text[split_pos] != '   ':
-                split_pos -= 1
-            if split_pos > 0:
-                self.__text_box2(text[:split_pos], text[split_pos+1:], 10, 90, 215, 68,
-                                 self.__font_size(text), inverted)
-            else:
-                #TODO: fix text box to do dynamic sizing to fit entire text within box
-                self.__text_box(text, 10, 90, 215, 68, self.__font_size(text), inverted)
-        else:
-            # One line textbox
-            self.__text_box(text, 10, 90, 215, 40, self.__font_size(text), inverted)
+    def draw_dashed_line(self, start_pos, end_pos, dash_size, space_size, color):
+        """
+        Draw dashed line from start_pos to end_pos
 
+        When upgrading to raylib 6, this will no longer be needed. Replace with
+        a call to pyray.draw_line_dashed(...)
+        """
+        x1, y1 = start_pos
+        x2, y2 = end_pos
+        dx = x2 - x1
+        dy = y2 - y1
+        line_length = math.hypot(dx, dy)
+
+        if line_length < (dash_size + space_size) or dash_size <= 0:
+            pyray.draw_line(int(x1), int(y1), int(x2), int(y2), color)
+            return
+
+        dir_x = dx / line_length
+        dir_y = dy / line_length
+        distance_traveled = 0.0
+        drawing_dash = True
+
+        current_x, current_y = x1, y1
+        while distance_traveled < line_length:
+            segment_len = dash_size if drawing_dash else space_size
+            remaining = line_length - distance_traveled
+            segment_len = min(segment_len, remaining)
+
+            next_x = current_x + dir_x * segment_len
+            next_y = current_y + dir_y * segment_len
+
+            if drawing_dash:
+                pyray.draw_line(int(current_x), int(current_y), int(next_x), int(next_y), color)
+
+            distance_traveled += segment_len
+            current_x, current_y = next_x, next_y
+            drawing_dash = not drawing_dash
+
+    def __text_message(self, text, inverted=False):
+        lines = self.menu.break_string(text, 18)
+        num_lines = len(lines)
+        wrapped_text = "\n".join(lines)
+        self.__text_box(wrapped_text, 10, 90, 215, 40*num_lines,
+                        self.__font_size(text), inverted)
+
+    def __draw_lane(self, start, end, texture):
+        pyray.draw_line_ex(start, end, self.lane_width, ORANGE)
+        pyray.draw_texture_v(self.checkerboard_texture, texture, WHITE)
 
     def __draw_lanes(self):
         if self.config.multi_track:
             pyray.draw_text(self.config.track_name, 10, 10, 24, ORANGE)
-            pyray.draw_text(self.config.remote_track_name, 130, 10, 24, BLACK)
-            pyray.draw_line_ex([120, 5], [120, 235], 4.0, BLACK)
+            pyray.draw_text(self.config.remote_track_name,
+                            230 - self.remote_name_width, 10, 24, BLACK)
 
-            pyray.draw_line_ex([35, 40], [35, 230], 34.0, ORANGE)
-            pyray.draw_line_ex([80, 40], [80, 230], 34.0, ORANGE)
+        for lane in range(self.display_lane_count):
+            triple = self.lane_dimensions[lane]
+            self.__draw_lane(triple[0], triple[1], triple[2])
+            if self.config.multi_track and lane == self.local_lane_count:
+                pyray.draw_line_ex([self.track_separator_x_offset, 35],
+                                   [self.track_separator_x_offset, 235], 4.0, BLACK)
 
-            pyray.draw_texture(self.checkerboard_texture, 18, 196, WHITE)
-            pyray.draw_texture(self.checkerboard_texture, 63, 196, WHITE)
+        # If the total number of lanes exceeds the number that can be displayed,
+        # the last displayed lane represental all remaining lanes.  Draw a dashed
+        # line down the middle of the lane to indicate it represents multiple lanes
+        if self.total_lane_count > self.display_lane_count:
+            triple = self.lane_dimensions[self.display_lane_count-1]
+            end_pos = [triple[1][0], triple[1][1]]
+            end_pos[1] -= self.checkerboard_size
+            self.draw_dashed_line(triple[0], end_pos, 8, 2, BLACK)
 
-            pyray.draw_line_ex([155, 40], [155, 230], 34.0, ORANGE)
-            pyray.draw_line_ex([200, 40], [200, 230], 34.0, ORANGE)
+    def __draw_cars(self, missing=None):
+        for lane in range(self.display_lane_count):
+            texture = (self.question_texture if (missing and missing[lane])
+                       else self.car_textures[lane])
 
-            pyray.draw_texture(self.checkerboard_texture, 138, 196, WHITE)
-            pyray.draw_texture(self.checkerboard_texture, 183, 196, WHITE)
-        else:
-            pyray.draw_line_ex([64, 10], [64, 230], 64.0, ORANGE)
-            pyray.draw_line_ex([164, 10], [164, 230], 64.0, ORANGE)
+            if missing and missing[lane]:
+                texture = self.question_texture
+            else:
+                texture = self.car_textures[lane]
 
-            pyray.draw_texture(self.checkerboard_texture, 32, 166, WHITE)
-            pyray.draw_texture(self.checkerboard_texture, 132, 166, WHITE)
+            pyray.draw_texture(texture,
+                               self.car_x_position[lane],
+                               self.car_y_position[lane],
+                               WHITE)
 
-    def __draw_cars(self, texture1, texture2, texture3, texture4):
-        if self.config.multi_track:
-            pyray.draw_texture(texture1,  22, self.local_y[CAR1],  WHITE)
-            pyray.draw_texture(texture2,  68, self.local_y[CAR2],  WHITE)
-            pyray.draw_texture(texture3, 142, self.remote_y[CAR1], WHITE)
-            pyray.draw_texture(texture4, 188, self.remote_y[CAR2], WHITE)
-        else:
-            pyray.draw_texture(texture1,  40, self.local_y[CAR1],  WHITE)
-            pyray.draw_texture(texture2, 140, self.local_y[CAR2],  WHITE)
-
-
-    def __draw_result(self, track_count, track_number, lane_number, lane_time, place):
+    def __draw_result(self, lane_number, lane_time, place):
         """
         Draw result icon superimposed of appripriate track.
-
-            track_count     1 if single track race, 2 if multi track race
-            track_number    1 if local track, 2 if remote track
-            lane_number     which lane in the track specified by track_number
+            lane_number     number of winning lane (0 based)
             lane_time       elapsed time for the specified lane, or NOT_FINISHED
             place           1, 2, or 3 for First, Second or Third place
         """
+
         if self.first_results_display:
-            print("__draw_result(", track_count, track_number, lane_number, lane_time, place, ")")
+            print(f"__draw_result({lane_number}, {lane_time}, {place})")
 
-        if track_count == 1:
-            x_offset = 15 + (lane_number - 1)*100
-            y_offset = 20 + (place)*40
-            time_y_offset = 180
-            time_width = 96
-        else:
-            x_offset = 10 + (lane_number - 1)*48 + (track_number - 1)*120
-            y_offset = 40 + (place)*50
+        lane_index = min(lane_number, self.display_lane_count)
+
+        if self.display_lane_count > 3:
             time_y_offset = 204
-            time_width = 46
+            time_width = 40
+            banner_y_offset = 42
+        else:
+            time_y_offset = 190
+            time_width = 74
+            banner_y_offset = 60
 
+        y_offset = self.y_starting_offset + (place * banner_y_offset)
+
+        triple = self.lane_dimensions[lane_index]
+        x_offset = triple[0][0] - int(self.banner_size/2)
         texture = self.fail_texture if lane_time == NOT_FINISHED else self.place_textures[place]
         pyray.draw_texture(texture, x_offset, y_offset, WHITE)
 
-        if lane_time == NOT_FINISHED:
-            display_time = "FAIL"
-        else:
-            display_time = "{:.3f}".format(lane_time)
-        if track_count == 1:
-            self.__text_box(display_time, x_offset, time_y_offset, time_width, 30, 28)
-        else:
+        display_time = "FAIL" if lane_time == NOT_FINISHED else "{:.3f}".format(lane_time)
+
+        x_offset = triple[0][0] - int(time_width/2)
+        if self.display_lane_count > 3:
             self.__text_box_dense(display_time, x_offset, time_y_offset, time_width, 20, 16)
+        else:
+            self.__text_box(display_time, x_offset, time_y_offset, time_width, 30, 24)
 
     def __wait_menu(self):
         self.menu.process_menus()
         self.state = RaceState.MENU_DONE
-        self.__load_textures()
+        #self.__load_textures()
         self.menu_event.set()
 
     def __menu_done(self):
@@ -490,40 +537,43 @@ class Display(threading.Thread):
     def __wait_remote_registration(self):
         self.__text_message("Waiting for: remote track")
 
-    def __remote_registration_done(self):
-        # Load car textures for remote track
-        if self.remote_icons_loaded:
+    def __race_configuration_done(self):
+        if self.configuration_loaded:
             return
-
-        print("__remote_registration_done: remote_num_lanes=", self.config.remote_num_lanes)
+        print("__race_configuration_done: remote_num_lanes=", self.config.remote_num_lanes)
+        print("  car_icons=", self.config.car_icons)
         print("  remote_car_icons=", self.config.remote_car_icons)
-        for car in range(self.config.remote_num_lanes):
-            icon = self.config.remote_car_icons[car]
-            self.local_y[car] = 40
-            image = pyray.load_image("cars/{}-{}.png".format(icon, 24))
-            self.remote_textures[car] = pyray.load_texture_from_image(image)
-            pyray.unload_image(image)
-        self.remote_icons_loaded = True
-        self.registration_event.set()
+
+        self.remote_lane_count = self.config.remote_num_lanes
+        self.total_lane_count = self.local_lane_count + self.remote_lane_count
+        self.display_lane_count = min(self.total_lane_count, Display._MAX_DISPLAY_LANES)
+        self.remote_name_width = pyray.measure_text(self.config.remote_track_name, 24)
+
+        self.lane_dimensions = self.__gen_lane_dimensions(self.local_lane_count,
+                                                          self.remote_lane_count)
+        self.__load_textures()
+
+        self.configuration_event.set()
+        self.configuration_loaded = True
 
     def __wait_local_ready(self):
-        texture1 = self.local_textures[0] if car_1_present() else self.question_texture
-        texture2 = self.local_textures[1] if car_2_present() else self.question_texture
-        if self.config.multi_track:
-            self.__draw_cars(texture1, texture2, self.question_texture, self.question_texture)
-        else:
-            self.__draw_cars(texture1, texture2, self.question_texture, self.question_texture)
+        missing = [True] * self.total_lane_count
+        for index in range(self.local_lane_count):
+            missing[index] = not car_present(index)
+
+        self.__draw_cars(missing)
         self.__text_message("Waiting for: Cars")
 
     def __wait_remote_ready(self):
-        wait_msg = "Waiting for: " + self.config.remote_track_name
-        self.__draw_cars(self.local_textures[CAR1], self.local_textures[CAR2],
-                         self.question_texture, self.question_texture)
-        self.__text_message(wait_msg)
+        missing = [False] * self.total_lane_count
+        for index in range(self.local_lane_count, self.total_lane_count):
+            missing[index] = True
+
+        self.__draw_cars(missing)
+        self.__text_message(f"Waiting for: {self.config.remote_track_name}")
 
     def __countdown(self):
-        self.__draw_cars(self.local_textures[CAR1], self.local_textures[CAR2],
-                         self.remote_textures[CAR1], self.remote_textures[CAR2])
+        self.__draw_cars()
         now = time.monotonic()
         if now - self.countdown_start > 3.0:
             self.countdown_event.set()
@@ -538,45 +588,140 @@ class Display(threading.Thread):
         delta = time.monotonic() - self.start
         delta_bytes = bytes('{:06.3f}'.format(delta), 'ascii')
 
-        self.__draw_cars(self.local_textures[0],
-                         self.local_textures[1],
-                         self.remote_textures[0],
-                         self.remote_textures[1])
+        self.__draw_cars()
         self.__text_box(delta_bytes, 26, 95, 180, 55, 50)
-        for car in range(self.config.num_lanes):
-            if random.random() < self.progress_threshold and self.local_y[car] < Display._MAX_Y:
-                self.local_y[car] += 1
-        for car in range(self.config.remote_num_lanes):
-            if random.random() < self.progress_threshold and self.remote_y[car] < Display._MAX_Y:
-                self.remote_y[car] += 1
+        car_index = 0
+
+        for __ in range(self.config.num_lanes):
+            if (random.random() < self.progress_threshold and \
+                self.car_y_position[car_index] < Display._MAX_Y):
+                self.car_y_position[car_index] += 1
+            car_index += 1
+
+        for __ in range(self.config.remote_num_lanes):
+            if (random.random() < self.progress_threshold and \
+                self.car_y_position[car_index] < Display._MAX_Y):
+                self.car_y_position[car_index] += 1
+            car_index += 1
 
     def __race_finished(self):
         # TODO: use IP address in results payload to determine own track vs other track to
         #       disambiguate in the event both tracks are set to the same name.
         if self.first_results_display:
-            print("__race_finished(): results =", self.results)
+            print(f"__race_finished(): results = {self.results}")
 
-        track_count = 2 if self.config.multi_track else 1
         place = 0
         for result in self.results:
-            track_number = 1 if result["trackName"] == self.config.track_name else 2
-            lane_number = result["laneNumber"]
+            if result["trackName"] == self.config.track_name:
+                track_offset = 0
+            else:
+                track_offset = self.local_lane_count
+            lane_number = result["laneNumber"] + track_offset
             lane_time = result["laneTime"]
-            self.__draw_result(track_count, track_number, lane_number, lane_time, place)
+            self.__draw_result(lane_number, lane_time, place)
             place += 1
             if place > 2:
                 break
+
         self.first_results_display = False
 
     def __race_timeout(self):
         self.__text_message("Race Timed Out")
 
-def run_sample_race():
+    def __get_random_car_image(self, icon_size):
+        dir_path = Path("cars")
+        matching_files = [ p.name for p in dir_path.glob(f"*-{icon_size}.png") ]
+        while len(matching_files):
+            random_car = random.choice(matching_files)
+            if not "question" in random_car:
+                break
+        return f"cars/{random_car}"
+
+    def __gen_lane_dimensions(self, local_lane_count, remote_lane_count):
+        """
+        Generate the array of
+
+           [ [start_x, end_x], [start_y, end_y], [checkerboard_x, checkerboard_y] ]
+
+        boundaries for each lane to be displayed.
+
+        Lanes are evenly spaced across the display. For Multi-Track races,
+        the spacing between the last lane of the local track and the first
+        lane of the remote track is doubled to draw a line separator.
+
+        To avoid lanes too small to draw/see, the display is limited to
+        at most _MAX_DISPLAY_LANES lanes.  If the total number of lanes)
+        across both tracks exceedes this limit, remote lanes are combined
+        into a single "highway" lane for display purposes.
+        """
+
+        print(f"__gen_lane_dimensions({local_lane_count}, {remote_lane_count})")
+
+        result = []
+
+        total_lane_count = local_lane_count + remote_lane_count
+        draw_lane_count  = min(total_lane_count, Display._MAX_DISPLAY_LANES)
+
+        lane_width = 64 if draw_lane_count <= 3 else 32
+        car_x_offset = 24 if draw_lane_count <= 3 else 12
+        end_y = 230
+
+        self.lane_width = lane_width
+        self.display_lane_count = draw_lane_count
+
+        if remote_lane_count == 0:
+            spacing = int((240-lane_width*draw_lane_count)/(draw_lane_count+1))
+            start_y = 10
+        else:
+            spacing = int((240-lane_width*draw_lane_count)/(draw_lane_count+2))
+            start_y = 35
+
+        print(f"__gen_lane_dimensions(): lane_width:{lane_width} "
+              f"draw_lane_count:{draw_lane_count} spacing:{spacing}")
+
+        start_x = end_x = spacing + int(lane_width/2)
+        for lane in range(local_lane_count):
+            print(f"__gen_lane_dimensions():local lane={lane}")
+            checkerboard_x = end_x - int(lane_width/2)
+            checkerboard_y = end_y - lane_width
+            tup = [[start_x, start_y], [end_x, end_y], [checkerboard_x, checkerboard_y]]
+            result.append(tup)
+            self.car_x_position[lane] = start_x - car_x_offset
+            start_x = end_x = start_x + lane_width + spacing
+
+        if remote_lane_count > 0:
+            self.track_separator_x_offset = start_x - lane_width/2
+            start_x = end_x = start_x + spacing
+
+        for lane in range (local_lane_count, draw_lane_count):
+            print(f"__gen_lane_dimensions():remote lane={lane}")
+            checkerboard_x = end_x - int(lane_width/2)
+            checkerboard_y = end_y - lane_width
+            tup = [[start_x, start_y], [end_x, end_y], [checkerboard_x, checkerboard_y]]
+            result.append(tup)
+            self.car_x_position[lane] = start_x - car_x_offset
+            start_x = end_x = start_x + lane_width + spacing
+
+        print(f"__gen_lane_dimensions: {result}")
+        return result
+
+
+def run_sample_race(local_lane_count, remote_lane_count):
     """
-    Run through the display operations for a sample race
+    Run through the display operations for a sample race with the specified
+    number of local and remote lanes
     """
 
     main_config = Config("config/starting_gate.json")
+    main_config.allow_multi_track = remote_lane_count > 0
+    main_config.num_lanes = local_lane_count
+    main_config.track_name = "Gramps"
+
+    if remote_lane_count:
+        main_config.multi_track = True
+        main_config.remote_num_lanes = remote_lane_count
+        main_config.remote_track_name = "Charlie"
+        main_config.remote_car_icons = ["NOT_THERE", "mclaren-f1", "minivan", "jeep"]
 
     display = Display(main_config)
     print("main: calling wait_menu")
@@ -590,12 +735,12 @@ def run_sample_race():
         print("main: calling wait_remote_registration")
         display.wait_remote_registration()
         time.sleep(2.0)
-        main_config.remote_track_name = "Charlie"
-        main_config.remote_num_lanes = 2
-        main_config.remote_car_icons = ["white-sl", "mclaren-f1"]
-        print("main: calling remote_registration_done")
-        display.remote_registration_done()
-        time.sleep(2)
+    else:
+        # override command line remote count if single lane race was selected
+        main_config.remote_num_lanes = 0
+
+    print("main: calling configuration_done")
+    display.race_configuration_done()
 
     print("main: calling wait_local_ready")
     display.wait_local_ready()
@@ -612,22 +757,37 @@ def run_sample_race():
     display.race_started()
     time.sleep(2.0)
 
-    if main_config.multi_track:
-        test_results = [{"trackName":main_config.track_name, "laneNumber":2, "laneTime":1.234},
-                        {"trackName":main_config.remote_track_name, "laneNumber":1,
-                         "laneTime":1.541},
-                        {"trackName":main_config.track_name, "laneNumber":1, "laneTime":2.130},
-                        {"trackName":main_config.remote_track_name, "laneNumber":2,
-                         "laneTime":NOT_FINISHED}]
-        display.race_finished(test_results)
-    else:
-        test_results = [{"trackName":main_config.track_name, "laneNumber":2, "laneTime":1.234},
-                        {"trackName":main_config.track_name, "laneNumber":1, "laneTime":2.087}]
-        display.race_finished(test_results)
+    # Generate random race results
+    results = []
+    lanes = []  # list of lanes that have not been selected as finishing in top n
+    for lane in range(display.total_lane_count):
+        lanes.append(lane)
+
+    print(f"lanes={lanes}")
+
+    last_lane_time = 0.0
+    for __ in range (min(display.total_lane_count, 3)):
+        lane_time = random.uniform(last_lane_time, last_lane_time + 2.0)
+        lane = random.choice(lanes)
+        lanes.remove(lane)
+
+        if lane < display.local_lane_count:
+            track_name = main_config.track_name
+        else:
+            track_name = main_config.remote_track_name
+            lane = lane - display.local_lane_count
+
+        result = {"trackName":track_name, "laneNumber":lane, "laneTime":lane_time}
+        results.append(result)
+        last_lane_time = lane_time
+
+    display.race_finished(results)
 
     display.join()
 
 if __name__ == '__main__':
-    run_sample_race()
+    local = int(sys.argv[1]) if len(sys.argv) > 1 else 2
+    remote = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+    run_sample_race(local, remote)
 
 # vim: expandtab: sw=4
