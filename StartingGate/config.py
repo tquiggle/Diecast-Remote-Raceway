@@ -128,7 +128,7 @@ class Config:
     DEFAULT[CIRCUIT] = "DRR"
     DEFAULT[COORDINATOR_HOSTNAME] = "<COORDINATOR_HOSTNAME>"
     DEFAULT[COORDINATOR_PORT] = 1968
-    DEFAULT[DISTRIBUTION_URL] = "https://github.com/tquiggle/Diecast-Remote-Raceway/releases"
+    DEFAULT[DISTRIBUTION_URL] = "https://github.com/tquiggle/Release-Test/releases/latest/download/"
     DEFAULT[FINISH_LINE_NAME] = "FinishLine"
     DEFAULT[IP_ADDRESS] = "127.0.0.1"
     DEFAULT[ALLOW_MULTI_TRACK] = False
@@ -136,7 +136,7 @@ class Config:
     DEFAULT[NUM_LANES] = 2
     DEFAULT[RACE_TIMEOUT] = 5.0
     DEFAULT[REMOTE_CAR_ICONS] = ["question", "question", "question", "question"]
-    DEFAULT[REMOTE_NUM_LANES] = 2
+    DEFAULT[REMOTE_NUM_LANES] = 0
     DEFAULT[REMOTE_TRACK_NAME] = "UNKNOWN"
     DEFAULT[SERVO_DOWN_VALUE] = 1.0
     DEFAULT[SERVO_UP_VALUE] = 0.0
