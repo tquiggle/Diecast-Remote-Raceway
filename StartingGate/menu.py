@@ -87,7 +87,7 @@ Licensed under the MIT license. See LICENSE file in the project root for full li
 import enum
 import glob
 import math
-import sys
+import os
 import time
 
 import pyray
@@ -411,10 +411,11 @@ class Menu:
             pyray.draw_texture(self.background_texture, 0, 0, WHITE)
             self.last_cursor_pos = self.cursor_pos
             FUNCTION[self.cursor_pos]()
+            if self.config_updated:
+                self.config.save()
+                self.config_updated = False
             pyray.end_drawing()
         self.device.pop_key_handlers()
-        if self.config_updated:
-            self.config.save()
 
 
     @staticmethod
@@ -953,8 +954,10 @@ class Menu:
             pyray.end_drawing()
             remaining_time = end_time - time.monotonic()
 
+        print(f"Done with restart loop. button_pressed={self.button_pressed}")
         if not self.button_pressed:
-            sys.exit()
+            print("calling os._exit().  Bye...}")
+            os._exit(0)
 
         self.device.pop_key_handlers()
         self.cursor_pos = MenuState.RESET_RESTART_SETUP
