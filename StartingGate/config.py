@@ -128,7 +128,7 @@ class Config:
     DEFAULT[CIRCUIT] = "DRR"
     DEFAULT[COORDINATOR_HOSTNAME] = "<COORDINATOR_HOSTNAME>"
     DEFAULT[COORDINATOR_PORT] = 1968
-    DEFAULT[DISTRIBUTION_URL] = "https://github.com/tquiggle/Diecast-Remote-Raceway/releases/latest/download/"
+    DEFAULT[DISTRIBUTION_URL] = "https://github.com/tquiggle/Diecast-Remote-Raceway/releases/latest/download"
     DEFAULT[FINISH_LINE_NAME] = "FinishLine"
     DEFAULT[IP_ADDRESS] = "127.0.0.1"
     DEFAULT[ALLOW_MULTI_TRACK] = False
