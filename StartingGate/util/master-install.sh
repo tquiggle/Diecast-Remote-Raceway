@@ -100,13 +100,13 @@ ARCH=$(dpkg --print-architecture)
 case "$ARCH" in
     armhf|armv7l)
         echo "The system environment is: armhf (32-bit)"
-        DIST=https://github.com/tquiggle/DRR-wifi-connect/releases/download/1.0.1/drr-wifi-connect_1.0.1-armhf.deb
-        DEB=./drr-wifi-connect_1.0.1-armhf.deb
+        DIST=https://github.com/tquiggle/DRR-wifi-connect/releases/download/1.0.2/drr-wifi-connect_1.0.2-armhf.deb
+        DEB=./drr-wifi-connect_1.0.2-armhf.deb
         ;;
     arm64|aarch64)
         echo "The system environment is: arm64 (64-bit)"
-        DIST=https://github.com/tquiggle/DRR-wifi-connect/releases/download/1.0.1/drr-wifi-connect_1.0.1-arm64.deb
-        DEB=./drr-wifi-connect_1.0.1-arm64.deb
+        DIST=https://github.com/tquiggle/DRR-wifi-connect/releases/download/1.0.2/drr-wifi-connect_1.0.2-arm64.deb
+        DEB=./drr-wifi-connect_1.0.2-arm64.deb
         ;;
     *)
         echo "Unknown or unsupported architecture: $ARCH"
