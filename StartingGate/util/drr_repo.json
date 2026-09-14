@@ -1,0 +1,64 @@
+{
+    "imager": {
+        "latest_version": "2.0.10",
+        "url": "https://www.raspberrypi.com/software/",
+        "devices": [
+            {
+                "name": "Raspberry Pi Zero 2 W",
+                "tags": [
+                    "pi3-64bit"
+                ],
+                "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_Zero_2_W.png",
+                "description": "Raspberry Pi Zero 2 W",
+                "matching_type": "inclusive"
+            },
+            {
+                "name": "Raspberry Pi Zero",
+                "tags": [
+                    "pi1-32bit"
+                ],
+                "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_Zero.png",
+                "description": "Raspberry Pi Zero, Zero W, and Zero WH",
+                "matching_type": "inclusive"
+            },
+            {
+                "name": "No filtering",
+                "tags": [],
+                "description": "Show every possible image",
+                "matching_type": "inclusive"
+            }
+        ]
+    },
+    "os_list": [
+        {
+            "name": "DRR Starting Gate (32-bit)",
+            "description": "file, works with version >= 2.2.0",
+            "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+            "website": "https://github.com/tquiggle/Diecast-Remote-Raceway",
+            "url": "https://github.com/tquiggle/Diecast-Remote-Raceway/releases/download/26082600/drr-sg-20260912-armhf.img.gz",
+            "url_shasum": "a8351e0f2b1fe2f2ff99935444be38bc4ba9105ddbe950b0b4b528c7cfe4f232",
+            "image_download_size": 923894289,
+            "extract_size": 3989995520,
+            "extract_sha256": "9b4999d4b55a12d34eb5cd3d627a8215cc1814311fb33dbbb254a463efe9edf0",
+            "release_date": "2026-09-26",
+            "init_format": "systemd",
+            "devices": ["pi1-32bit"],
+            "capabilities": ["wifi", "ssh"]
+        },
+        {
+            "name": "DRR Starting Gate (64-bit)",
+            "description": "file, works with version >= 2.2.0",
+            "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+            "website": "https://github.com/tquiggle/Diecast-Remote-Raceway",
+            "url": "https://github.com/tquiggle/Diecast-Remote-Raceway/releases/download/26082600/drr-sg-20260912-arm64.img.gz",
+            "url_shasum": "96f2755f8f9ca881bf9f7c1ff81237f1a9ec8428f75b956810e2a171267fdbcf",
+            "image_download_size": 999410865,
+            "extract_size": 4377391104,
+            "extract_sha256": "9edb0958a08945d60d832228cabac2b3339d7aabbe532de94fc98d16c3e3261e",
+            "release_date": "2026-09-26",
+            "init_format": "systemd",
+            "devices": ["pi3-64bit"],
+            "capabilities": ["wifi", "ssh"]
+        }
+    ]
+}
