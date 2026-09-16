@@ -205,14 +205,8 @@ Run the Raspberry Pi Imager and configure to use custom OS image as follows:
 1.  Select "Use custom URL"
 1.  Copy and Paste the following URL into the text box:
 
-<!--
 ```bash
-    https://raw.githubusercontent.com/tquiggle/Diecast-Remote-Raceway/refs/heads/master/StartingGate/util/drr_os_list.json
-```
--->
-
-```bash
-    URL COMING SOON
+    https://raw.githubusercontent.com/tquiggle/Diecast-Remote-Raceway/refs/heads/master/StartingGate/util/drr_repo.json
 ```
 
 5.  Click "APPLY & RESTART"
@@ -220,15 +214,18 @@ Run the Raspberry Pi Imager and configure to use custom OS image as follows:
 Insert the card into an appropriate card reader on your computer, or in a 
 [USB SD Card Reader](https://www.amazon.com/dp/B0DQ71G4G4?th=1).
 
-Re-run the Raspberry Pi IMager and select the Zero board you are using. The correct OS image should be the only option
-in the OS menu.
+Select the Zero board you are using. The correct OS image should be the only option in the OS menu.
 
 In the Customisation menu, the Hostname is pre-configured as 'drr' and the user 'drr' has been created.  You can just
 click 'NEXT' to skip these.
 
+When the image is done writing and verifying, remove the microSD chip and insert it into your controller.  On the first
+startup, it will expand the filesystem to the size of your SD card.  Subsequent startups should be a bit quicker.
+
 #### Building from Scratch
 
-See the file BUILD.MD in the StartingGate directory for instructions on how to build an image from scratch.
+See the file master-install.sh in the StartingGate/util directory for details on how to build an image from scratch.
+Running the script on a fresh Raspberry Pi installation will create a working Starting Gate system.
 
 ### Configuring WiFi
 
@@ -238,8 +235,8 @@ options to configure later
 
 #### Using the Starting Gate Hotspot
 
-When the Starting Gate boots, if it can not connect to WiFi, it starts a WiFi Hotspot named 'DRR WiFi Setup'
-Simply connect to this WiFi Hotspot using your phone/tablet/laptop. There is no password.  Once connected 
+When the Starting Gate boots, if it can not connect to WiFi it starts a WiFi Hotspot named 'DRR WiFi Setup'
+Simply connect to this WiFi Hotspot using your phone/tablet/laptop. There is no password. Once connected 
 you will be directed to a captive portal page to select a WiFi network and enter the password.
 
 #### Using the Starting Gate configuration menu
