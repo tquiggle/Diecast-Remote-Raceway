@@ -133,6 +133,32 @@ mkdir ~/bin
 cd ~/bin
 wget https://raw.githubusercontent.com/seamusdemora/RonR-RPi-image-utils/refs/heads/master/image-backup
 chmod +x image-backup
+# Patch RonR's image-backup to place the resize-root-fs command at the 
+# beginning of /etc/rc.local rather than the end.  Otherwise, the Starting
+# Gate will run and the resize will never happen.
+cat > /tmp/image-backup.patch << __EOF__
+*** image-backup.orig	2026-09-16 16:18:53.838911928 -0700
+--- image-backup	2026-09-16 16:19:58.375658609 -0700
+***************
+*** 172,178 ****
+  shutdown --no-wall -r now
+  EOF1
+        chmod +x "${MNTPATH}/etc/resize-root-fs"
+!       sed -i 's|^exit 0$|/etc/resize-root-fs\nexit 0|' "${MNTPATH}/etc/rc.local"
+      fi
+    fi
+    sync
+--- 172,178 ----
+  shutdown --no-wall -r now
+  EOF1
+        chmod +x "${MNTPATH}/etc/resize-root-fs"
+!       sed -i '1a\/etc\/resize-root-fs' "${MNTPATH}/etc/rc.local"
+      fi
+    fi
+    sync
+__EOF__
+
+patch <  /tmp/image-backup.patch
 cd
 
 ####################
