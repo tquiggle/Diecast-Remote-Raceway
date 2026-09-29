@@ -166,16 +166,16 @@ The Waveshare 1.3" LCD HAT provide three button input and a joystick for navigat
 
 The Starting Gate consists of the following components
 
-* drr\_wrapper.py called from /etc/rc.init at boot, checks for software updates and runs starting\_gate.py as a child process.  If starting\_gate.py fails for any reason, it is restarted
-* starting\_gate.py is the executable for the starting gate. It displays the initial menu and runs races
-
 * config.py manages configuration settings
 * coordinator.py interface to the Race Coordinator server when running multi-track races
 * deviceio.py interface to WaveShare 1.3" LCD buttons, servo and GPIO PINs for sensing cars
 * display.py manages the race display
+* drr\_wrapper.py called from /etc/rc.init at boot, checks for software updates and runs starting\_gate.py as a child process.  If starting\_gate.py fails for any reason, it is restarted
 * finishline.py manages communication with the Finish Line
 * input.py accepts user input via character selection from a grid
 * menu.py manages the top level menu and all configuration menus
+* starting\_gate.py is the executable for the starting gate. It displays the initial menu and runs races
+* wifi.py  is responsible for managing the WiFi interface
 
 ## Raspberry Pi Software Setup
 
