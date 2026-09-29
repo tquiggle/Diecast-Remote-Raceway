@@ -371,19 +371,20 @@ class Display(threading.Thread):
 
     def __text_box_dense(self, text, x, y, width, height, size):
         pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-        pyray.draw_text_ex(self.font, text, [x+2, y+2], size, 1.0, BLACK)
+        pyray.draw_text_ex(self.font, text, [x+2, y+2], size, 2.0, BLACK)
 
     def __text_box(self, text, x, y, width, height, size, inverted=False):
         """
         Draws a box at location (x,y) with width and height. Prints text with specified font size
         """
         pyray.draw_rectangle_lines(x, y, width, height, BLACK)
+        pyray.set_text_line_spacing(size)
         if inverted:
             pyray.draw_rectangle_rec([x, y, width, height], GRAY)
-            pyray.draw_text_ex(self.font, text, [x+10, y+2], size, 1.0, WHITE)
+            pyray.draw_text_ex(self.font, text, [x+10, y+2], size, 2.0, WHITE)
         else:
             pyray.draw_rectangle_rec([x, y, width, height], WHITE)
-            pyray.draw_text_ex(self.font, text, [x+10, y+2], size, 1.0, BLACK)
+            pyray.draw_text_ex(self.font, text, [x+10, y+2], size, 2.0, BLACK)
 
 
     @staticmethod
@@ -439,9 +440,10 @@ class Display(threading.Thread):
     def __text_message(self, text, inverted=False):
         lines = self.menu.break_string(text, 18)
         num_lines = len(lines)
+        longest_idx = max(range(len(lines)), key=lambda i: len(lines[i]))
         wrapped_text = "\n".join(lines)
         self.__text_box(wrapped_text, 10, 90, 215, 40*num_lines,
-                        self.__font_size(text), inverted)
+                        self.__font_size(lines[longest_idx]), inverted)
 
     def __draw_lane(self, start, end, texture):
         pyray.draw_line_ex(start, end, self.lane_width, ORANGE)
