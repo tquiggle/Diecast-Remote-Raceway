@@ -152,7 +152,9 @@ schematic is shown below.
 
 #### Custom PCB
 
-The Gerber files for the CBB HAT can be found in the gerber folder.
+The Gerber files for the CBB HAT can be found in the gerber folder.  Alternately, you can order a set of 5 boards for $5 (plus
+shipping) directly from PCBWay. 
+[Diecast Remote Raceway - Connector Breakout Board HAT](https://www.pcbway.com/project/shareproject/Diecast_Remote_Raceway_Connector_Breakout_Board_HAT_055c51ce.html)
 
 ![CBB](../images/CBB.jpg)
 
@@ -179,9 +181,7 @@ The Starting Gate consists of the following components
 
 ## Raspberry Pi Software Setup
 
-### Install Raspberry PI OS
-
-#### Using Raspberry Pi Imager
+### Using Raspberry Pi Imager
 
 The easiest way to get up and running is to use a preconfigured OS image
 from the DRR GitHub repository.
@@ -216,8 +216,11 @@ Insert the card into an appropriate card reader on your computer, or in a
 
 Select the Zero board you are using. The correct OS image should be the only option in the OS menu.
 
-In the Customisation menu, the Hostname is pre-configured as 'drr' and the user 'drr' has been created.  You can just
-click 'NEXT' to skip these.
+In the OS image, the Hostname is pre-configured as 'drr' and the
+user 'drr' has been created with the password "HotWheels".  In the
+Customisation menu, just click 'NEXT' to skip these.  NOTE: If you create
+a new user, it will REPLACE the drr user and the startup process will
+fail when it can't find the '/home/drr' directory!
 
 When the image is done writing and verifying, remove the microSD chip and insert it into your controller.  On the first
 startup, it will expand the filesystem to the size of your SD card.  Subsequent startups should be a bit quicker.
